@@ -9,6 +9,7 @@ using System.IO;
 using OpenCvSharp;
 using NumSharp;
 using Accord.Imaging;
+using System.Windows.Media.Imaging;
 
 namespace MultiFishTouchResponse
 {
