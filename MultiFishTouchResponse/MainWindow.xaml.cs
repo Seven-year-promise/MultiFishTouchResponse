@@ -35,7 +35,8 @@ namespace MultiFishTouchResponse
         NanotecSet setReset = new NanotecSet();
         NanotecSet setKeyUp = new NanotecSet();
         NanotecSet setKeyDown = new NanotecSet();
-        ImageAnalysis imageAnalysis;
+        //ImageAnalysis imageAnalysis;
+        ImageProcessing imageProcessor;
         public List<Line> Lines = new List<Line>();
         public int StepMode = 16;
         SettingUp Initialization = new SettingUp();
@@ -186,7 +187,7 @@ namespace MultiFishTouchResponse
 
         private void BeginImageAnalysis()
         {
-            imageAnalysis = new ImageAnalysis(Ximea.CameraImageQueue, viewModel, DebugWindow);
+            imageProcessor = new ImageProcessing(viewModel, DebugWindow);
             var b1 = new Binding("AnalysedImage");
             b1.Delay = 30;
             BindingOperations.SetBinding(image, Image.SourceProperty, b1);
@@ -961,15 +962,15 @@ namespace MultiFishTouchResponse
 
                             //imageAnalysis = new ImageAnalysis(Ximea.CameraImageQueue, viewModel, DebugWindow);
                             viewModel.CannyChecked = true;
-                            imageAnalysis.image_not_saving = true;
+                            //imageAnalysis.image_not_saving = true;
                             //imageAnalysis.Begin();
-
+                            imageProcessor.run();
                             //var b1 = new Binding("AnalysedImage");
                             //b1.Delay = 30;
                             //BindingOperations.SetBinding(image, Image.SourceProperty, b1);
                             //ImageRotate.Angle = 0;
                             //ImageFlip.ScaleY = 1;
-                            imageAnalysis.needleAdded = false;
+                            //imageAnalysis.needleAdded = false;
 
                             await Task.Run(() =>
                             {
@@ -1014,7 +1015,7 @@ namespace MultiFishTouchResponse
                             }
 
 
-                            imageAnalysis.image_not_saving = false;
+                            //imageAnalysis.image_not_saving = false;
                             //imageAnalysis.Dispose();
 
                             Ximea.Recordingsaving = false;
@@ -1045,29 +1046,33 @@ namespace MultiFishTouchResponse
         private void checkBox_UseAnalysedImage_Checked(object sender, RoutedEventArgs e)
         {
             //List<WriteableBitmap> RecordingQueueBuffer = new List<WriteableBitmap>(Ximea.CameraImageQueue);
-            imageAnalysis = new ImageAnalysis(Ximea.CameraImageQueue, viewModel, DebugWindow);
-            var b1 = new Binding("AnalysedImage");
-            b1.Delay = 30;
-            BindingOperations.SetBinding(image, Image.SourceProperty, b1);
-            ImageRotate.Angle = 0;
-            ImageFlip.ScaleY = 1;
+            //imageAnalysis = new ImageAnalysis(Ximea.CameraImageQueue, viewModel, DebugWindow);
+            //var b1 = new Binding("AnalysedImage");
+            //b1.Delay = 30;
+            //BindingOperations.SetBinding(image, Image.SourceProperty, b1);
+            //ImageRotate.Angle = 0;
+            //ImageFlip.ScaleY = 1;
+            imageProcessor.Begin();
+            imageProcessor.run();
         }
 
         private void checkBox_UseAnalysedImage_Unchecked(object sender, RoutedEventArgs e)
         {
+            /*
             imageAnalysis.Dispose();
             var b1 = new Binding("CurrentCameraImage");
             b1.Delay = 30;
             BindingOperations.SetBinding(image, Image.SourceProperty, b1);
             ImageRotate.Angle = 90;
             ImageFlip.ScaleY = -1;
+            */
+            imageProcessor.Dispose();
         }
 
         private void textBox_Videoname_TextChanged(object sender, TextChangedEventArgs e)
         {
             viewModel.Videoname = textBox_Videoname.Text;
         }
-
 
     }
 }

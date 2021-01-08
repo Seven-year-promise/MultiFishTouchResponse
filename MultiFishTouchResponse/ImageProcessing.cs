@@ -10,6 +10,7 @@ using OpenCvSharp;
 using NumSharp;
 using Accord.Imaging;
 using System.Windows.Media.Imaging;
+using System.Collections.Concurrent;
 
 namespace MultiFishTouchResponse
 {
@@ -47,8 +48,14 @@ namespace MultiFishTouchResponse
         private DataComputation dataOperator;
         private DataTransformation dataTransfer;
 
-        public ImageProcessing()
+        private ViewModel viewModel;
+        private DebugView DebugWindow;
+        private BitmapSource image;
+
+        public ImageProcessing( ViewModel viewmodel, DebugView debugview)
         {
+            viewModel = viewmodel;
+            DebugWindow = debugview;
 
             unet = new UNet_tf("UNet.pb");
             dataOperator = new DataComputation();
@@ -56,40 +63,80 @@ namespace MultiFishTouchResponse
             unet.load_graph();
         }
 
-        public void run(Mat src)
+        //To end infinite while loop
+        private bool disposed = false;
+        public void Dispose()
         {
-            //var src = new Mat("lenna.png", ImreadModes.Grayscale);
-            var dst = new Mat();
-            var gray = new Mat();
-            //Cv2.CvtColor(src: src, dst: gray, code: ColorConversionCodes.BGR2GRAY);
-            int[] well_info = new int[3];
-            var masked_im = well_detection(src, out well_info);
-            Rect well_area = new Rect((well_info[1] - 120), (well_info[0] - 120), 240, 240);
-            var im_block = masked_im[well_area];
-            var binaries = unet.run(im_block);
-
-            Mat needle_binary = new Mat(src.Rows, src.Cols, MatType.CV_8UC1, new Scalar(0));
-            Mat larva_binary = new Mat(src.Rows, src.Cols, MatType.CV_8UC1, new Scalar(0));
-            needle_binary[well_area] = binaries[0];
-            larva_binary[well_area] = binaries[1];
-            var needle_point = find_needle_point(needle_binary, src);
-            Mat needle_display = new Mat();
-            src.CopyTo(needle_display);
-            Cv2.Circle(needle_display, centerX: needle_point[1], centerY: needle_point[0], 3, new Scalar(0, 255, 0), 3);
-            var fish_binary = select_big_blobs(larva_binary, out List<List<List<int>>> fish_blobs, out List<List<int>> closest_blob, needle_point, size: 44);
-            //Cv2.Canny(src, dst, 50, 200);
-            var fish_display = dataTransfer.Array2Mat(fish_binary);
-            var fish_bitmap = dataTransfer.Mat2Bitmap(fish_display);
-            var fish_point = find_fish_point(fish_bitmap, closest_blob, 0.75);
-
-            Cv2.Circle(needle_display, centerX: fish_point[1], centerY: fish_point[0], 3, new Scalar(0, 255, 0), 3);
-            using (new Window("needle image", needle_display))
-            using (new Window("larva image", fish_display))
-            {
-                Cv2.WaitKey();
-            }
+            disposed = true;
         }
 
+        public void Begin()
+        {
+            disposed = false;
+        }
+
+        public void run()
+        {
+            Task.Run(() =>
+            {
+                while (disposed == false)
+                {
+                    AnalyseImage();
+                }
+            });
+        }
+
+        public void AnalyseImage() {
+            bool succesful = Ximea.CameraImageQueue.TryTake(out image);
+
+            if (succesful == true)
+            {
+                Mat src = dataTransfer.BitmapSource2Mat(image);
+                if (viewModel.CannyChecked == true)
+                {
+                    //var src = new Mat("lenna.png", ImreadModes.Grayscale);
+
+                    var dst = new Mat();
+                    var gray = new Mat();
+                    //Cv2.CvtColor(src: src, dst: gray, code: ColorConversionCodes.BGR2GRAY);
+                    int[] well_info = new int[3];
+                    var masked_im = well_detection(src, out well_info);
+                    Rect well_area = new Rect((well_info[1] - 120), (well_info[0] - 120), 240, 240);
+                    var im_block = masked_im[well_area];
+                    var binaries = unet.run(im_block);
+
+                    Mat needle_binary = new Mat(src.Rows, src.Cols, MatType.CV_8UC1, new Scalar(0));
+                    Mat larva_binary = new Mat(src.Rows, src.Cols, MatType.CV_8UC1, new Scalar(0));
+                    needle_binary[well_area] = binaries[0];
+                    larva_binary[well_area] = binaries[1];
+                    var needle_point = find_needle_point(needle_binary, src);
+                    Mat needle_display = new Mat();
+                    src.CopyTo(needle_display);
+                    Cv2.Circle(needle_display, centerX: needle_point[1], centerY: needle_point[0], 3, new Scalar(0, 255, 0), 3);
+                    var fish_binary = select_big_blobs(larva_binary, out List<List<List<int>>> fish_blobs, out List<List<int>> closest_blob, needle_point, size: 44);
+                    //Cv2.Canny(src, dst, 50, 200);
+                    var fish_display = dataTransfer.Array2Mat(fish_binary);
+                    var fish_bitmap = dataTransfer.Mat2Bitmap(fish_display);
+                    var fish_point = find_fish_point(fish_bitmap, closest_blob, 0.75);
+
+                    Cv2.Circle(needle_display, centerX: fish_point[1], centerY: fish_point[0], 3, new Scalar(0, 255, 0), 3);
+                    /*using (new Window("needle image", needle_display))
+                    using (new Window("larva image", fish_display))
+                    {
+                        Cv2.WaitKey();
+                    }
+                    */
+                    src = fish_display;
+                    viewModel.CannyChecked = false;
+                }
+
+                var bitmapsource = dataTransfer.Mat2BitmapSource(src);
+
+                bitmapsource.Freeze();
+                viewModel.AnalysedImage = bitmapsource;
+                src.Release();
+            }
+        }
         
 
         public Mat well_detection(Mat im, out int[] well_info, int threshold = 50)
@@ -350,7 +397,7 @@ namespace MultiFishTouchResponse
             }
 
             System.Windows.Application.Current.Dispatcher.Invoke((Action)delegate {
-                //viewModel.Lines.Clear();
+                viewModel.Lines.Clear();
                 int some_value = 0; // viewModel.Border.ActualWidth
                 double pixelratio = some_value / 480;
                 System.Windows.Shapes.Line line1 = new System.Windows.Shapes.Line();
@@ -365,8 +412,8 @@ namespace MultiFishTouchResponse
                 line2.Y2 = P[1].Y * pixelratio;
                 line2.X2 = (P[0].X * 0.4 + P[1].X * 0.6) * pixelratio;
                 line2.Y2 = (P[0].Y * 0.4 + P[1].Y * 0.6) * pixelratio;
-                //viewModel.Lines.Add(line1);
-                //viewModel.Lines.Add(line2);
+                viewModel.Lines.Add(line1);
+                viewModel.Lines.Add(line2);
             });
         }
     }
