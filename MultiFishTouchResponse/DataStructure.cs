@@ -174,6 +174,16 @@ namespace MultiFishTouchResponse
             return out_mat;
         }
 
+        public NDArray List2NDArray2D(List<List<int>> src)
+        {
+            int s_num = src[0].Count();
+            NDArray skeleton_cor_array = new NDArray(np.int32, new Shape(new int[2] { s_num, 2 }));
+            skeleton_cor_array[Slice.All, 0] = src[0].ToArray();
+            skeleton_cor_array[Slice.All, 1] = src[1].ToArray();
+
+            return skeleton_cor_array;
+        }
+
         public Bitmap Mat2Bitmap(Mat src)
         {
             return OpenCvSharp.Extensions.BitmapConverter.ToBitmap(src);
@@ -183,7 +193,7 @@ namespace MultiFishTouchResponse
         {
             return OpenCvSharp.Extensions.BitmapConverter.ToMat(src);
         }
-
+        /*
         public BitmapSource Mat2BitmapSource(Mat src)
         {
             var temp = Mat2Bitmap(src);
@@ -196,6 +206,7 @@ namespace MultiFishTouchResponse
             return Bitmap2Mat(temp);
         }
 
+        
         public  Bitmap BitmapFromSource(BitmapSource bitmapsource)
         {
             System.Drawing.Bitmap bitmap;
@@ -259,5 +270,7 @@ namespace MultiFishTouchResponse
 
             return new System.Windows.Media.PixelFormat();
         }
+        */
+
     }
 }

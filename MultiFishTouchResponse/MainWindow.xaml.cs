@@ -94,6 +94,7 @@ namespace MultiFishTouchResponse
 
         public MainWindow()
         {
+            
             Initialization.show();
 
 
@@ -157,6 +158,7 @@ namespace MultiFishTouchResponse
             DataContext = viewModel;
             Ximea.viewModel = viewModel;
             DebugWindow = new DebugView(viewModel);
+            imageProcessor = new ImageProcessing(viewModel, DebugWindow);
             viewModel.Lines = Lines;
             viewModel.Border = Border;
             viewModel.StepMode = StepMode;
@@ -187,12 +189,13 @@ namespace MultiFishTouchResponse
 
         private void BeginImageAnalysis()
         {
-            imageProcessor = new ImageProcessing(viewModel, DebugWindow);
+            
             var b1 = new Binding("AnalysedImage");
             b1.Delay = 30;
             BindingOperations.SetBinding(image, Image.SourceProperty, b1);
             ImageRotate.Angle = 0;
             ImageFlip.ScaleY = 1;
+            imageProcessor.run();
         }
 
         private void SetAllMotors(NanotecSet Set, int SetNo, List<NanotecController> Motors)
@@ -978,9 +981,6 @@ namespace MultiFishTouchResponse
                                 while (viewModel.Lines.Count < 2)
                                 {
                                     Task.Delay(100).Wait();
-                                    waiting_time++;
-                                    if (waiting_time > 20)
-                                        break;
                                 }
                             });
 

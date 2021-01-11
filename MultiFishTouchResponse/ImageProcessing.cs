@@ -9,11 +9,13 @@ using System.IO;
 using OpenCvSharp;
 using NumSharp;
 using Accord.Imaging;
-using System.Windows.Media.Imaging;
 using System.Collections.Concurrent;
 
 namespace MultiFishTouchResponse
 {
+    public static class Globals{
+        public static double epsilon = 1e-5;
+    }
     class ImBlob
     {
         public List<int> xs;
@@ -50,9 +52,9 @@ namespace MultiFishTouchResponse
 
         private ViewModel viewModel;
         private DebugView DebugWindow;
-        private BitmapSource image;
+        private System.Windows.Media.Imaging.BitmapSource image;
 
-        public ImageProcessing( ViewModel viewmodel, DebugView debugview)
+        public ImageProcessing(ViewModel viewmodel, DebugView debugview)
         {
             viewModel = viewmodel;
             DebugWindow = debugview;
@@ -87,11 +89,14 @@ namespace MultiFishTouchResponse
         }
 
         public void AnalyseImage() {
-            bool succesful = Ximea.CameraImageQueue.TryTake(out image);
 
-            if (succesful == true)
+            bool succesful = Ximea.CameraImageQueue.TryTake(out image);
+            
+            if ((succesful == true)&(image!=null))
             {
-                Mat src = dataTransfer.BitmapSource2Mat(image);
+                var im_bitmap = BitmapFromSource(image);
+
+                Mat src = dataTransfer.Bitmap2Mat(im_bitmap);
                 if (viewModel.CannyChecked == true)
                 {
                     //var src = new Mat("lenna.png", ImreadModes.Grayscale);
@@ -103,6 +108,9 @@ namespace MultiFishTouchResponse
                     var masked_im = well_detection(src, out well_info);
                     Rect well_area = new Rect((well_info[1] - 120), (well_info[0] - 120), 240, 240);
                     var im_block = masked_im[well_area];
+                    // TODO  I do now know why, need to check it later
+                    Ximea.StopCamera = true;
+                    Task.Delay(500).Wait();  // wait until camera stops
                     var binaries = unet.run(im_block);
 
                     Mat needle_binary = new Mat(src.Rows, src.Cols, MatType.CV_8UC1, new Scalar(0));
@@ -117,27 +125,39 @@ namespace MultiFishTouchResponse
                     //Cv2.Canny(src, dst, 50, 200);
                     var fish_display = dataTransfer.Array2Mat(fish_binary);
                     var fish_bitmap = dataTransfer.Mat2Bitmap(fish_display);
-                    var fish_point = find_fish_point(fish_bitmap, closest_blob, 0.75);
 
+                    var fish_point = find_fish_point(fish_bitmap, out double angle, closest_blob, 0.75);
+                    //var fish_point = find_fish_skeleton_point(fish_display, closest_blob, 0.75);
+                    TrajectoryGenerate(fish_point, needle_point, angle, 30);
+                    /*
                     Cv2.Circle(needle_display, centerX: fish_point[1], centerY: fish_point[0], 3, new Scalar(0, 255, 0), 3);
-                    /*using (new Window("needle image", needle_display))
-                    using (new Window("larva image", fish_display))
+                    using (new Window("needle image", needle_display))
+                    using (new Window("needle_binary", needle_binary))
+                    using (new Window("larva_binary", larva_binary))
                     {
                         Cv2.WaitKey();
                     }
                     */
+                    
                     src = fish_display;
                     viewModel.CannyChecked = false;
                 }
 
-                var bitmapsource = dataTransfer.Mat2BitmapSource(src);
+                var analysed_bitmap = dataTransfer.Mat2Bitmap(src);
+                var bitmapsource = ConvertBitmap(analysed_bitmap);
 
                 bitmapsource.Freeze();
                 viewModel.AnalysedImage = bitmapsource;
                 src.Release();
+                if (Ximea.StopCamera)
+                {
+                    Ximea.StopCamera = false;
+                    Ximea.StartCamera();
+                }
+                        
             }
         }
-        
+
 
         public Mat well_detection(Mat im, out int[] well_info, int threshold = 50)
         {
@@ -245,14 +265,14 @@ namespace MultiFishTouchResponse
             if (blobs_tuned.Count() > 0)
             {
                 closest_blob = blobs_tuned[distance_inx];
-                
+
                 tuned_binary = dataOperator.SetSelection(tuned_binary, closest_blob[0], closest_blob[1], value: 255);
             }
             else
             {
                 closest_blob = null;
             }
-            
+
 
             return tuned_binary;
         }
@@ -263,10 +283,7 @@ namespace MultiFishTouchResponse
             var mask_erode = new Mat();
             Cv2.Erode(mask, mask_erode, element);
 
-            using (new Window("mask_erode", mask_erode))
-            {
-                Cv2.WaitKey();
-            }
+            
             Mat mask_inv = new Mat();
             Cv2.BitwiseNot(mask_erode, mask_inv);
 
@@ -281,7 +298,116 @@ namespace MultiFishTouchResponse
             return minIdx; //h, w
         }
 
-        public int[] find_fish_point(System.Drawing.Bitmap fish_mask, List<List<int>> fish_blob, double percentagy)
+        public Mat Skeletonize(Mat binary)
+        {
+            var kernel = Cv2.GetStructuringElement(MorphShapes.Cross, new Size(3, 3));
+
+            bool finished = false;
+            var skeleton = new Mat(binary.Rows, binary.Cols, MatType.CV_8UC1, new Scalar(0));
+            var size = binary.Rows * binary.Cols;
+            /*using (new Window("binary", binary))
+            {
+                Cv2.WaitKey();
+            }
+            */
+
+            using (var eroded = new Mat())
+            using (var temp = new Mat())
+            using (var open = new Mat())
+            {
+                while (!finished)
+                {
+                    // Step 2: Open the image
+                    Cv2.MorphologyEx(binary, open, MorphTypes.Open, kernel);
+                    // Step 3: Substract open from the original image
+                    Cv2.Subtract(binary, open, temp);
+                    // Step 4: Erode the original image and refine the skeleton
+                    Cv2.Erode(binary, eroded, kernel);
+
+                    Cv2.BitwiseOr(skeleton, temp, skeleton);
+                    eroded.CopyTo(binary);
+
+
+                    var zeros = size - Cv2.CountNonZero(binary);
+                    if (Cv2.CountNonZero(binary) == 0)
+                        finished = true;
+                }
+            }
+            Mat median = new Mat();
+            Cv2.MorphologyEx(skeleton, median, MorphTypes.Close, kernel);
+            /*using (new Window("skeleton", median))
+            {
+                Cv2.WaitKey(0);
+            }
+            */
+
+            return skeleton;
+        }
+
+
+        public int[] find_fish_skeleton_point(Mat fish_mask, List<List<int>> fish_blob, double percentage)
+        {
+            /*
+            :param fish_mask: the binary of the fish: 0/1
+            :param needle_center: the center of the needle: y, x
+            :param fish_blobs: the coordinates of the area of the fish
+            :param percentages: list of the points to be touched in percentage coordinate system
+            :return: list of the coordinates to be touched for the closest fish to the needle
+            */
+            var skeleton = Skeletonize(fish_mask);
+            var skeleton_cor = dataOperator.WhereGreater(skeleton, 0);
+            int blob_cor_num = skeleton_cor[0].Count();
+
+
+            int[] point1 = new int[2] { skeleton_cor[0][0], skeleton_cor[1][0] };
+            int[] point2 = new int[2] { skeleton_cor[0][blob_cor_num - 1], skeleton_cor[1][blob_cor_num - 1] };
+
+            int[] fish_center = new int[2];
+            fish_center[0] = (int)Math.Round(fish_blob[0].Average());
+            fish_center[1] = (int)Math.Round(fish_blob[1].Average());
+            return get_point(point1, point2, fish_center, percentage);
+
+        }
+
+
+        public int[] get_point(int[] point1, int[] point2, int[] fish_center, double percentage)
+        {
+            var y1 = point1[0];
+            var x1 = point1[1];
+
+            var y2 = point2[0];
+            var x2 = point2[1];
+
+            var f_y = fish_center[0];
+            var f_x = fish_center[1];
+            var distance1 = (f_x - x1) * (f_x - x1) + (f_y - y1) * (f_y - y1);
+            var distance2 = (f_x - x2) * (f_x - x2) + (f_y - y2) * (f_y - y2);
+
+            double k = (y2 - y1) / (x2 - x1 + Globals.epsilon) + Globals.epsilon;
+            int[] top_head = new int[2];
+            int[] tail_end = new int[2];
+            if (distance1 < distance2)
+            {
+                top_head = point1;
+                tail_end = point2;
+            }
+            else
+            {
+                top_head = point2;
+                tail_end = point1;
+            }
+
+            int[] percent_point = new int[2];
+            percent_point[0] = (int)(Math.Round((1 - percentage) * top_head[0] + percentage * tail_end[0]));
+            percent_point[1] = (int)(Math.Round((1 - percentage) * top_head[1] + percentage * tail_end[1]));
+
+            return percent_point;
+        }
+    
+    
+
+
+        public int[] find_fish_point(System.Drawing.Bitmap fish_mask, out double angle, List<List<int>> fish_blob, double percentagy)
         {
             ImBlob fish_area = new ImBlob(fish_blob);
             var cropfilter = new AForge.Imaging.Filters.Crop(fish_area.rect);
@@ -290,7 +416,7 @@ namespace MultiFishTouchResponse
             
             Accord.Imaging.Moments.CentralMoments cm = new Accord.Imaging.Moments.CentralMoments(croppedImage, order: 2);
             // Get size and orientation of the image
-            double angle = cm.GetOrientation() * 180 / Math.PI;
+            angle = cm.GetOrientation() * 180 / Math.PI;
             //double centerpointX = fish_area.CenterRect.X;
             //double centerpointY = fish_area.CenterRect.Y;
 
@@ -398,8 +524,7 @@ namespace MultiFishTouchResponse
 
             System.Windows.Application.Current.Dispatcher.Invoke((Action)delegate {
                 viewModel.Lines.Clear();
-                int some_value = 0; // viewModel.Border.ActualWidth
-                double pixelratio = some_value / 480;
+                double pixelratio = viewModel.Border.ActualWidth / 480;
                 System.Windows.Shapes.Line line1 = new System.Windows.Shapes.Line();
                 line1.X1 = needle_point[1] * pixelratio;
                 line1.Y1 = needle_point[0] * pixelratio;
@@ -416,6 +541,92 @@ namespace MultiFishTouchResponse
                 viewModel.Lines.Add(line2);
             });
         }
+
+
+        #region Bitmap Conversion Methods
+        private System.Drawing.Bitmap BitmapFromSource(System.Windows.Media.Imaging.BitmapSource bitmapsource)
+        {
+            System.Drawing.Bitmap bitmap;
+            using (System.IO.MemoryStream outStream = new System.IO.MemoryStream())
+            {
+                System.Windows.Media.Imaging.BitmapEncoder enc = new System.Windows.Media.Imaging.BmpBitmapEncoder();
+                enc.Frames.Add(System.Windows.Media.Imaging.BitmapFrame.Create(bitmapsource));
+                enc.Save(outStream);
+                bitmap = new System.Drawing.Bitmap(outStream);
+            }
+            return bitmap;
+        }
+
+
+        public static System.Windows.Media.Imaging.BitmapSource GetBitmapSource(System.Drawing.Bitmap image)
+        {
+            var rect = new System.Drawing.Rectangle(0, 0, image.Width, image.Height);
+            var bitmap_data = image.LockBits(rect, System.Drawing.Imaging.ImageLockMode.ReadOnly, image.PixelFormat);
+
+            try
+            {
+                System.Windows.Media.Imaging.BitmapPalette palette = null;
+
+                if (image.Palette.Entries.Length > 0)
+                {
+                    var palette_colors = image.Palette.Entries.Select(entry => System.Windows.Media.Color.FromArgb(entry.A, entry.R, entry.G, entry.B)).ToList();
+                    palette = new System.Windows.Media.Imaging.BitmapPalette(palette_colors);
+                }
+
+                return System.Windows.Media.Imaging.BitmapSource.Create(
+                    image.Width,
+                    image.Height,
+                    image.HorizontalResolution,
+                    image.VerticalResolution,
+                    ConvertPixelFormat(image.PixelFormat),
+                    palette,
+                    bitmap_data.Scan0,
+                    bitmap_data.Stride * image.Height,
+                    bitmap_data.Stride
+                );
+            }
+            finally
+            {
+                image.UnlockBits(bitmap_data);
+            }
+        }
+
+        private static System.Windows.Media.PixelFormat ConvertPixelFormat(System.Drawing.Imaging.PixelFormat sourceFormat)
+        {
+            switch (sourceFormat)
+            {
+                case System.Drawing.Imaging.PixelFormat.Format24bppRgb:
+                    return System.Windows.Media.PixelFormats.Bgr24;
+
+                case System.Drawing.Imaging.PixelFormat.Format32bppArgb:
+                    return System.Windows.Media.PixelFormats.Bgra32;
+
+                case System.Drawing.Imaging.PixelFormat.Format32bppRgb:
+                    return System.Windows.Media.PixelFormats.Bgr32;
+            }
+
+            return new System.Windows.Media.PixelFormat();
+        }
+
+        //Convert Aforge Bitmap back to WPF Bitmapsource
+        [System.Runtime.InteropServices.DllImport("gdi32.dll")]
+        public static extern bool DeleteObject(IntPtr hObject);
+        private System.Windows.Media.Imaging.BitmapSource ConvertBitmap(System.Drawing.Bitmap source)
+        {
+            using (source)
+            {
+                IntPtr hBitmap = source.GetHbitmap();
+                var image = System.Windows.Interop.Imaging.CreateBitmapSourceFromHBitmap(
+                            hBitmap,
+                            IntPtr.Zero,
+                            System.Windows.Int32Rect.Empty,
+                            System.Windows.Media.Imaging.BitmapSizeOptions.FromEmptyOptions());
+                DeleteObject(hBitmap); //otherwise memory leak due to hbitmap
+                return image;
+            }
+
+        }
+        #endregion
     }
     class UNet_tf
     {
@@ -473,14 +684,15 @@ namespace MultiFishTouchResponse
                 //var result = results[Slice.All, Slice.All, 0];
                 //result = np.expand_dims(result, 0);
                 //result = np.expand_dims(result, 3);
-                var results_tensor = tf.convert_to_tensor(results);
+                //var results_tensor = tf.convert_to_tensor(results);
+                var result_place_holder = tf.placeholder(tf.float32, results.shape, name:"results");
                 
-                var results_sig_tensor = tf.nn.sigmoid(results_tensor);
+                var results_sig_tensor = tf.nn.sigmoid(result_place_holder);
                 //int[] perm = new int[4] { 0, 3, 1, 2 };
                 //var results_sig_int_tensor = tf.cast(results_sig_tensor, tf.int32);
                 using (var one_sess = tf.Session()) 
                 {
-                    results = one_sess.run(results_sig_tensor);
+                    results = one_sess.run(results_sig_tensor, (result_place_holder, results));
                 }
                 
                 //int[] perm = new int[4] { 0, 3, 1, 2 };
