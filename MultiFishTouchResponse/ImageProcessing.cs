@@ -57,7 +57,7 @@ namespace MultiFishTouchResponse
             viewModel = viewmodel;
             DebugWindow = debugview;
 
-            unet = new UNet_tf("UNet.pb");
+            unet = new UNet_tf("UNet18000.pb");
             dataOperator = new DataComputation();
             dataTransfer = new DataTransformation();
             unet.load_graph();
