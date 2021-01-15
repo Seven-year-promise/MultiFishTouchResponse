@@ -74,7 +74,7 @@ namespace MultiFishTouchResponse
                         recordingwatch.Start();
                         if (System.Runtime.GCSettings.LatencyMode != System.Runtime.GCLatencyMode.NoGCRegion)
                         {
-                            GC.TryStartNoGCRegion(1000000000, true); //1GB
+                            GC.TryStartNoGCRegion(100000000, true); //0.1GB
                         }
                     }
                     timestampbuffer.Add(Timestamp);

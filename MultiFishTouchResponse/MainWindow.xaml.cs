@@ -977,10 +977,11 @@ namespace MultiFishTouchResponse
 
                             await Task.Run(() =>
                             {
-                                int waiting_time = 0;
                                 while (viewModel.Lines.Count < 2)
                                 {
                                     Task.Delay(100).Wait();
+                                    if (imageProcessor.detection_failed)
+                                        break;
                                 }
                             });
 
@@ -1017,7 +1018,7 @@ namespace MultiFishTouchResponse
 
                             //imageAnalysis.image_not_saving = false;
                             //imageAnalysis.Dispose();
-
+                            imageProcessor.detection_failed = true;
                             Ximea.Recordingsaving = false;
                             Ximea.Recording = false;
                             viewModel.CannyChecked = false;
