@@ -173,6 +173,7 @@
     </ApplicationDefinition>
     <Compile Include="Class1.cs" />
     <Compile Include="ImageAnalysis.cs" />
+    <Compile Include="Segmentation.cs" />
     <Compile Include="SettingBox.xaml.cs">
       <DependentUpon>SettingBox.xaml</DependentUpon>
     </Compile>
