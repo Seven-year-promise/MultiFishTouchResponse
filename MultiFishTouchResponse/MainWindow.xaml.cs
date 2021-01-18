@@ -167,6 +167,7 @@ namespace MultiFishTouchResponse
             viewModel.WellRows = "00";
             viewModel.WellCols = "00";
             viewModel.fishSelectedPart = wellInformation.fishPartIndex;
+            viewModel.debug = true;
 
             Wellpositions = TxtFileReader("WellPositions.txt");
 
@@ -891,6 +892,11 @@ namespace MultiFishTouchResponse
                         // over when double clicked!
                         else
                         {
+                            if (viewModel.debug)
+                            {
+                                string this_time = System.DateTime.Now.ToString("HHmmss");
+                                Console.WriteLine("move to next well begin" + this_time);
+                            }
                             WellplateActiveWell.SetValue(Grid.RowProperty, row);
                             WellplateActiveWell.SetValue(Grid.ColumnProperty, col);
                             viewModel.ActiveWellColor = new SolidColorBrush(Colors.Yellow);
@@ -952,6 +958,11 @@ namespace MultiFishTouchResponse
                             viewModel.movePoints.Clear();
                             viewModel.Lines.Clear();
                             Task.Delay(2000).Wait();
+                            if (viewModel.debug)
+                            {
+                                string this_time = System.DateTime.Now.ToString("HHmmss");
+                                Console.WriteLine("move to next well end" + this_time);
+                            }
                             /*
                             await Task.Run(() =>
                             {
@@ -967,7 +978,7 @@ namespace MultiFishTouchResponse
                             viewModel.CannyChecked = true;
                             //imageAnalysis.image_not_saving = true;
                             //imageAnalysis.Begin();
-                            imageProcessor.run();
+                            //imageProcessor.run();
                             //var b1 = new Binding("AnalysedImage");
                             //b1.Delay = 30;
                             //BindingOperations.SetBinding(image, Image.SourceProperty, b1);
@@ -1054,7 +1065,7 @@ namespace MultiFishTouchResponse
             //ImageRotate.Angle = 0;
             //ImageFlip.ScaleY = 1;
             imageProcessor.Begin();
-            imageProcessor.run();
+            //imageProcessor.run();
         }
 
         private void checkBox_UseAnalysedImage_Unchecked(object sender, RoutedEventArgs e)

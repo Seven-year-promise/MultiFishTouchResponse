@@ -1,15 +1,12 @@
-﻿using System;
+﻿using Accord.Imaging;
+using NumSharp;
+using OpenCvSharp;
+using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
 using System.Threading.Tasks;
 using Tensorflow;
 using static Tensorflow.Binding;
-using System.IO;
-using OpenCvSharp;
-using NumSharp;
-using Accord.Imaging;
-using System.Collections.Concurrent;
 
 namespace MultiFishTouchResponse
 {
@@ -47,8 +44,11 @@ namespace MultiFishTouchResponse
     class ImageProcessing
     {
         private UNet_tf unet = null;
+        private RegionGrowing rg = null;
+        private NeedleDetectionThre needle_detector = null;
         private DataComputation dataOperator;
         private DataTransformation dataTransfer;
+        private PostProcessing post_processor;
 
         private ViewModel viewModel;
         private DebugView DebugWindow;
@@ -58,10 +58,12 @@ namespace MultiFishTouchResponse
         {
             viewModel = viewmodel;
             DebugWindow = debugview;
-
+            post_processor = new PostProcessing();
             unet = new UNet_tf("UNet18000.pb");
             dataOperator = new DataComputation();
             dataTransfer = new DataTransformation();
+            rg = new RegionGrowing(5);
+            needle_detector = new NeedleDetectionThre(50);
             unet.load_graph();
         }
 
@@ -97,77 +99,111 @@ namespace MultiFishTouchResponse
             {
                 if (viewModel.CannyChecked == true)
                 {
-                    var im_bitmap = BitmapFromSource(image);
-
-                    Mat src_from_bitmap = dataTransfer.Bitmap2Mat(im_bitmap);
-                    Mat src_rotated = new Mat();
-                    Cv2.Rotate(src_from_bitmap, src_rotated, RotateFlags.Rotate90Counterclockwise);
-                    Mat src = new Mat();
-                    Cv2.Flip(src_rotated, src, FlipMode.Y);
-                    //var src = new Mat("lenna.png", ImreadModes.Grayscale);
-
-                    var dst = new Mat();
-                    var gray = new Mat();
-                    //Cv2.CvtColor(src: src, dst: gray, code: ColorConversionCodes.BGR2GRAY);
-                    int[] well_info = new int[3];
-                    var masked_im = well_detection(src, out well_info);
-                    Rect well_area = new Rect((well_info[1] - 120), (well_info[0] - 120), 240, 240);
-                    var im_block = masked_im[well_area];
-                    // TODO  I do now know why, need to check it later
-                    //Ximea.StopCamera = true;
-                    //Task.Delay(500).Wait();  // wait until camera stops
-                    var binaries = unet.run(im_block);
-
-                    Mat needle_binary = new Mat(src.Rows, src.Cols, MatType.CV_8UC1, new Scalar(0));
-                    Mat larva_binary = new Mat(src.Rows, src.Cols, MatType.CV_8UC1, new Scalar(0));
-                    needle_binary[well_area] = binaries[0];
-                    larva_binary[well_area] = binaries[1];
-                    var needle_point = find_needle_point(needle_binary, src);
-                    if(needle_point != null)
-                    {
-                        Mat needle_display = new Mat();
-                        src.CopyTo(needle_display);
-                        Cv2.Circle(needle_display, centerX: needle_point[1], centerY: needle_point[0], 3, new Scalar(0, 255, 0), 3);
-                        var fish_binary = select_big_blobs(larva_binary, out List<List<List<int>>> fish_blobs, out List<List<int>> closest_blob, needle_point, size: 44);
-                        if (closest_blob != null)
+                    try {
+                        if (viewModel.debug)
                         {
-                            //Cv2.Canny(src, dst, 50, 200);
-                            var fish_display = dataTransfer.Array2Mat(fish_binary);
-                            var fish_bitmap = dataTransfer.Mat2Bitmap(fish_display);
-
-                            var fish_point = find_fish_point(fish_bitmap, out double angle, closest_blob, 0.75);
-                            //var fish_point = find_fish_skeleton_point(fish_display, closest_blob, 0.75);
-                            TrajectoryGenerate(fish_point, needle_point, angle, 30);
-                            /*
-                            Cv2.Circle(needle_display, centerX: fish_point[1], centerY: fish_point[0], 3, new Scalar(0, 255, 0), 3);
-                            using (new Window("needle image", needle_display))
-                            using (new Window("needle_binary", needle_binary))
-                            using (new Window("larva_binary", larva_binary))
-                            {
-                                Cv2.WaitKey();
-                            }
-                            */
-                            src = fish_display;
-                            viewModel.CannyChecked = false;
+                            string this_time = System.DateTime.Now.ToString("HHmmss");
+                            Console.WriteLine("image processing begin" + this_time);
                         }
+                        var im_bitmap = BitmapFromSource(image);
+                        viewModel.Videoname = "WT" + "_" + System.DateTime.Now.ToString("HHmmss") + "_Speed" + viewModel.final_speed_factor;
+                        Mat src_from_bitmap = dataTransfer.Bitmap2Mat(im_bitmap);
+                        Mat src_rotated = new Mat();
+                        Cv2.Rotate(src_from_bitmap, src_rotated, RotateFlags.Rotate90Counterclockwise);
+                        Mat src = new Mat();
+                        Cv2.Flip(src_rotated, src, FlipMode.Y);
+                        //var src = new Mat("lenna.png", ImreadModes.Grayscale);
+                        Cv2.ImWrite(Ximea.Path + "\\" + viewModel.Videoname + "_ori.jpg", src);
+                        var analyzed_color = new Mat();
+                        src.CopyTo(analyzed_color);
+                        var gray = new Mat();
+                        //Cv2.CvtColor(src: src, dst: gray, code: ColorConversionCodes.BGR2GRAY);
+                        int[] well_info = new int[3];
+                        var masked_im = well_detection(src, out well_info);
+                        Rect well_area = new Rect((well_info[1] - 120), (well_info[0] - 120), 240, 240);
+                        var im_block = masked_im[well_area];
+                        // TODO  I do now know why, need to check it later
+                        //Ximea.StopCamera = true;
+                        //Task.Delay(500).Wait();  // wait until camera stops
+                        if (viewModel.debug)
+                        {
+                            string this_time = System.DateTime.Now.ToString("HHmmss");
+                            Console.WriteLine("unet begin " + this_time);
+                        }
+                        //var needle_point = needle_detector.run(im_block);
+                        var binaries = unet.run(im_block);
+                        if (viewModel.debug)
+                        {
+                            string this_time = System.DateTime.Now.ToString("HHmmss");
+                            Console.WriteLine("unet end " + this_time);
+                        }
+                        Mat needle_binary = new Mat(src.Rows, src.Cols, MatType.CV_8UC1, new Scalar(0));
+                        Mat larva_binary = new Mat(src.Rows, src.Cols, MatType.CV_8UC1, new Scalar(0));
+                        needle_binary[well_area] = binaries[0];
+                        larva_binary[well_area] = binaries[1];
+
+                        Cv2.ImWrite(Ximea.Path + "\\" + viewModel.Videoname + "_binary_needle.jpg", needle_binary);
+                        Cv2.ImWrite(Ximea.Path + "\\" + viewModel.Videoname + "_binary_larva.jpg", larva_binary);
+                        var needle_point = post_processor.find_needle_point(needle_binary, src);
+                        if (needle_point != null)
+                        {
+                            //Mat needle_display = new Mat();
+                            //src.CopyTo(needle_display);
+                            Cv2.Circle(analyzed_color, centerX: needle_point[1], centerY: needle_point[0], 3, new Scalar(0, 255, 0), 3);
+                            var fish_binary = post_processor.select_big_blobs(larva_binary, out List<List<List<int>>> fish_blobs, out List<List<int>> closest_blob, needle_point, size: 44);
+                            if (closest_blob != null)
+                            {
+                                //Cv2.Canny(src, dst, 50, 200);
+                                var fish_display = dataTransfer.Array2Mat(fish_binary);
+                                var fish_bitmap = dataTransfer.Mat2Bitmap(fish_display);
+
+                                var fish_point = post_processor.find_fish_point(fish_bitmap, out double angle, closest_blob, 0.75);
+                                //var fish_point = find_fish_skeleton_point(fish_display, closest_blob, 0.75);
+                                TrajectoryGenerate(fish_point, needle_point, angle, 30);
+
+                                Cv2.Circle(analyzed_color, centerX: fish_point[1], centerY: fish_point[0], 3, new Scalar(0, 0, 255), 3);
+                                Cv2.ImWrite(Ximea.Path + "\\" + viewModel.Videoname + "_analyzed.jpg", analyzed_color);
+                                
+                                // using (new Window("needle image", needle_display))
+                                //uing (new Window("needle_binary", needle_binary))
+                                //using (new Window("larva_binary", larva_binary))
+                                //{
+                                    //Cv2.WaitKey();
+                                //}
+                                
+                                src = fish_display;
+                                viewModel.CannyChecked = false;
+                            }
+                            {
+                                detection_failed = true;
+                            }
+                        }
+                        else
                         {
                             detection_failed = true;
                         }
-                    }
-                    else
-                    {
-                        detection_failed = true;
-                    }
-                    if (detection_failed)
-                    {
-                        viewModel.CannyChecked = false;
-                    }
-                    //var analysed_bitmap = dataTransfer.Mat2Bitmap(src);
-                    //var bitmapsource = ConvertBitmap(analysed_bitmap);
+                        if (detection_failed)
+                        {
+                            viewModel.CannyChecked = false;
+                        }
+                        
+                        //var analysed_bitmap = dataTransfer.Mat2Bitmap(src);
+                        //var bitmapsource = ConvertBitmap(analysed_bitmap);
 
-                    //bitmapsource.Freeze();
-                    //viewModel.AnalysedImage = bitmapsource;
-                    src.Release();
+                        //bitmapsource.Freeze();
+                        //viewModel.AnalysedImage = bitmapsource;
+                        src.Release();
+                        if (viewModel.debug)
+                        {
+                            string this_time = System.DateTime.Now.ToString("HHmmss");
+                            Console.WriteLine("image processing end" + this_time);
+                        }
+                       
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine(ex.ToString());
+                    }
                 }
                 
 
@@ -257,264 +293,6 @@ namespace MultiFishTouchResponse
             return im_closing_inv;
         }
 
-        public NDArray select_big_blobs(Mat binary,
-            out List<List<List<int>>> blobs_tuned,
-            out List<List<int>> closest_blob,
-            int[] needle_point,
-            int size = 44)
-        {
-            Mat labels = new Mat();
-            int label_num = Cv2.ConnectedComponents(binary, labels);
-
-            // background: 0, if there exsits larva, the number should be >= 2
-            if(label_num >= 2) 
-            {
-                //var labels_array = dataTransfer.Mat2Array(labels, np.int32);
-                blobs_tuned = new List<List<List<int>>>();
-                List<double> distances = new List<double>(9);
-                double distance = 0;
-                int distance_inx = 0;
-                for (int l = 1; l < label_num; l++)
-                {
-                    var coordinates = dataOperator.WhereEqual(labels, l);
-                    if (coordinates[0].Count() > size)
-                    {
-                        blobs_tuned.append(coordinates);
-                        var centerod_y = coordinates[0].Average();
-                        var centerod_x = coordinates[1].Average();
-                        var new_distance = (centerod_x - needle_point[1]) * (centerod_x - needle_point[1]) + (centerod_y - needle_point[0]) * (centerod_y - needle_point[0]);
-                        if (new_distance < distance)
-                        {
-                            distance_inx = blobs_tuned.Count() - 1;
-                            distance = new_distance;
-                        }
-                    }
-                }
-                var tuned_binary = np.zeros((binary.Rows, binary.Cols), np.int32);
-                if (blobs_tuned.Count() > 0)
-                {
-                    closest_blob = blobs_tuned[distance_inx];
-
-                    tuned_binary = dataOperator.SetSelection(tuned_binary, closest_blob[0], closest_blob[1], value: 255);
-                }
-                else
-                {
-                    closest_blob = null;
-                }
-
-
-                return tuned_binary;
-            }
-            else
-            {
-                blobs_tuned = null;
-                closest_blob = null;
-                return null;
-            }
-        }
-
-        public int[] find_needle_point(Mat mask, Mat ori)
-        {
-            Mat element = Cv2.GetStructuringElement(MorphShapes.Rect, new Size(5, 5));
-            var mask_erode = new Mat();
-            Cv2.Erode(mask, mask_erode, element);
-
-
-            Mat mask_inv = new Mat();
-            Cv2.BitwiseNot(mask_erode, mask_inv);
-
-            // if the area of needle is detected, otherwise there is not needle area
-            if (dataOperator.Wherelower(mask_inv, 1)[0].Count() > 0) 
-            {
-                Mat gray_masked = new Mat();
-                Cv2.BitwiseAnd(ori, mask_erode, gray_masked);
-                gray_masked = gray_masked + mask_inv;
-
-                int[] minIdx = new int[2];
-                int[] maxIdx = new int[2];
-                gray_masked.MinMaxIdx(out double minVal, out double maxVal, minIdx, maxIdx);
-
-                return minIdx; //h, w
-
-            }
-            else
-            {
-                return null;
-            }
-            
-        }
-
-        public Mat Skeletonize(Mat binary)
-        {
-            var kernel = Cv2.GetStructuringElement(MorphShapes.Cross, new Size(3, 3));
-
-            bool finished = false;
-            var skeleton = new Mat(binary.Rows, binary.Cols, MatType.CV_8UC1, new Scalar(0));
-            var size = binary.Rows * binary.Cols;
-            /*using (new Window("binary", binary))
-            {
-                Cv2.WaitKey();
-            }
-            */
-
-            using (var eroded = new Mat())
-            using (var temp = new Mat())
-            using (var open = new Mat())
-            {
-                while (!finished)
-                {
-                    // Step 2: Open the image
-                    Cv2.MorphologyEx(binary, open, MorphTypes.Open, kernel);
-                    // Step 3: Substract open from the original image
-                    Cv2.Subtract(binary, open, temp);
-                    // Step 4: Erode the original image and refine the skeleton
-                    Cv2.Erode(binary, eroded, kernel);
-
-                    Cv2.BitwiseOr(skeleton, temp, skeleton);
-                    eroded.CopyTo(binary);
-
-
-                    var zeros = size - Cv2.CountNonZero(binary);
-                    if (Cv2.CountNonZero(binary) == 0)
-                        finished = true;
-                }
-            }
-            Mat median = new Mat();
-            Cv2.MorphologyEx(skeleton, median, MorphTypes.Close, kernel);
-            /*using (new Window("skeleton", median))
-            {
-                Cv2.WaitKey(0);
-            }
-            */
-
-            return skeleton;
-        }
-
-
-        public int[] find_fish_skeleton_point(Mat fish_mask, List<List<int>> fish_blob, double percentage)
-        {
-            /*
-            :param fish_mask: the binary of the fish: 0/1
-            :param needle_center: the center of the needle: y, x
-            :param fish_blobs: the coordinates of the area of the fish
-            :param percentages: list of the points to be touched in percentage coordinate system
-            :return: list of the coordinates to be touched for the closest fish to the needle
-            */
-            var skeleton = Skeletonize(fish_mask);
-            var skeleton_cor = dataOperator.WhereGreater(skeleton, 0);
-            int blob_cor_num = skeleton_cor[0].Count();
-
-
-            int[] point1 = new int[2] { skeleton_cor[0][0], skeleton_cor[1][0] };
-            int[] point2 = new int[2] { skeleton_cor[0][blob_cor_num - 1], skeleton_cor[1][blob_cor_num - 1] };
-
-            int[] fish_center = new int[2];
-            fish_center[0] = (int)Math.Round(fish_blob[0].Average());
-            fish_center[1] = (int)Math.Round(fish_blob[1].Average());
-            return get_point(point1, point2, fish_center, percentage);
-
-        }
-
-
-        public int[] get_point(int[] point1, int[] point2, int[] fish_center, double percentage)
-        {
-            var y1 = point1[0];
-            var x1 = point1[1];
-
-            var y2 = point2[0];
-            var x2 = point2[1];
-
-            var f_y = fish_center[0];
-            var f_x = fish_center[1];
-            var distance1 = (f_x - x1) * (f_x - x1) + (f_y - y1) * (f_y - y1);
-            var distance2 = (f_x - x2) * (f_x - x2) + (f_y - y2) * (f_y - y2);
-
-            double k = (y2 - y1) / (x2 - x1 + Globals.epsilon) + Globals.epsilon;
-            int[] top_head = new int[2];
-            int[] tail_end = new int[2];
-            if (distance1 < distance2)
-            {
-                top_head = point1;
-                tail_end = point2;
-            }
-            else
-            {
-                top_head = point2;
-                tail_end = point1;
-            }
-
-            int[] percent_point = new int[2];
-            percent_point[0] = (int)(Math.Round((1 - percentage) * top_head[0] + percentage * tail_end[0]));
-            percent_point[1] = (int)(Math.Round((1 - percentage) * top_head[1] + percentage * tail_end[1]));
-
-            return percent_point;
-        }
-    
-    
-
-
-        public int[] find_fish_point(System.Drawing.Bitmap fish_mask, out double angle, List<List<int>> fish_blob, double percentagy)
-        {
-            ImBlob fish_area = new ImBlob(fish_blob);
-            var cropfilter = new AForge.Imaging.Filters.Crop(fish_area.rect);
-            var croppedImage = cropfilter.Apply(fish_mask);
-            var display = dataTransfer.Bitmap2Mat(croppedImage);
-            
-            Accord.Imaging.Moments.CentralMoments cm = new Accord.Imaging.Moments.CentralMoments(croppedImage, order: 2);
-            // Get size and orientation of the image
-            angle = cm.GetOrientation() * 180 / Math.PI;
-            //double centerpointX = fish_area.CenterRect.X;
-            //double centerpointY = fish_area.CenterRect.Y;
-
-            //double newfish_areaX = DetectedObjects.Blobs[i].Rectangle.X;
-            //double newfish_areaY = DetectedObjects.Blobs[i].Rectangle.Y;
-            //double newfish_width = DetectedObjects.Blobs[i].Rectangle.Width;
-            //double newfish_height = DetectedObjects.Blobs[i].Rectangle.Height;
-            //adjust orientation angle of fish left 0 to right 180°
-            if (fish_area.Width > fish_area.Height)
-            {
-                if (fish_area.CenterGravity.X < fish_area.CenterRect.X && angle > 90)
-                {
-                    angle = angle - 180;
-                }
-                if (fish_area.CenterGravity.X > fish_area.CenterRect.X && angle < 90)
-                {
-                    angle = angle - 180;
-                }
-            }
-            else
-            {
-                if (fish_area.CenterGravity.Y > fish_area.CenterRect.Y)
-                {
-                    angle = angle - 180;
-                }
-            }
-            //get Head point via rotation and minimal bounding rectangle
-            var rotatefilter = new AForge.Imaging.Filters.RotateNearestNeighbor(angle, false);
-            var rotatedImage = rotatefilter.Apply(croppedImage);
-
-            BlobCounter blobCounter = new BlobCounter();
-            blobCounter.FilterBlobs = true;
-            blobCounter.MinWidth = 0;
-            blobCounter.MaxWidth = 100;
-            blobCounter.MinHeight = 0;
-            blobCounter.MaxHeight = 100;
-            blobCounter.ObjectsOrder = ObjectsOrder.Area;
-            blobCounter.ProcessImage(rotatedImage);
-            Blob[] blob = blobCounter.GetObjectsInformation();
-            //newBmp = rotatedImage;
-            int[] fish_point = new int[2];
-            if (blob.Count() > 0)
-            {
-                cropfilter = new AForge.Imaging.Filters.Crop(blob[0].Rectangle);
-                double distance = blob[0].CenterOfGravity.X * (percentagy - 0.3) / 0.3; //blob[0].Rectangle.Width - blob[0].CenterOfGravity.X;
-
-                float xdistance = (float)(distance * Math.Cos(Math.PI * angle / 180.0));
-                float ydistance = (float)(distance * Math.Sin(Math.PI * angle / 180.0));
-                fish_point = new int[2] { (int)(fish_area.CenterGravity.Y + ydistance), (int)(fish_area.CenterGravity.X + xdistance) };
-            }
-            return fish_point;
-        }
         public void TrajectoryGenerate(int[] fish_point, int[] needle_point, double angle, int distancefromfish)
         {
             //DebugWindow.MoveToPoint(Needle, middlepoint);

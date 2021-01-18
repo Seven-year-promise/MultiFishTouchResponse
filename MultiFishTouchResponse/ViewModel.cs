@@ -138,5 +138,6 @@ namespace MultiFishTouchResponse
         public int fishSelectedPart = 0;
         public int WELLROWS = 0;
         public int WELLCOLS = 0;
+        public bool debug { get; set; }
     }
 }

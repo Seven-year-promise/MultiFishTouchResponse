@@ -542,7 +542,7 @@ namespace MultiFishTouchResponse
                             Task.Delay(100).Wait();
                         }
                         Task.Delay(3000).Wait();
-                        Ximea.Recording = false;
+                        //Ximea.Recording = false;
                         viewModel.moveToFishFinished = true;
                     });
 
