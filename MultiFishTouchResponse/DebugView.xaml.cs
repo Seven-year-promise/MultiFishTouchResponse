@@ -411,8 +411,8 @@ namespace MultiFishTouchResponse
                     {
                         Task.Delay(100).Wait();
                     }
-                    Task.Delay(1000).Wait();
-                    Ximea.Recording = false;
+                    //Task.Delay(3000).Wait();
+                    //Ximea.Recording = false;
                 });
             }
             catch (Exception ex)

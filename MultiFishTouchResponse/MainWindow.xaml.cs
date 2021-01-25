@@ -975,7 +975,8 @@ namespace MultiFishTouchResponse
 
 
                             //imageAnalysis = new ImageAnalysis(Ximea.CameraImageQueue, viewModel, DebugWindow);
-                            viewModel.CannyChecked = true;
+                            imageProcessor.DetectionINIT = true;
+                            //viewModel.CannyChecked = true;
                             //imageAnalysis.image_not_saving = true;
                             //imageAnalysis.Begin();
                             //imageProcessor.run();
@@ -988,9 +989,12 @@ namespace MultiFishTouchResponse
 
                             await Task.Run(() =>
                             {
-                                while (viewModel.Lines.Count < 2)
+                                // stop when already waited for 20 seconds, or when the detection dailed
+                                int waiting_cnt = 0;
+                                while (waiting_cnt < 200)
                                 {
                                     Task.Delay(100).Wait();
+                                    waiting_cnt++;
                                     if (imageProcessor.detection_failed)
                                         break;
                                 }
@@ -998,27 +1002,24 @@ namespace MultiFishTouchResponse
 
 
                             //
-                            if (viewModel.Lines.Count >= 2)
+                            if(imageProcessor.detected_larva_num > 0)
                             {
-                                moveToFish();
-                                await Task.Run(() =>
+                                while (imageProcessor.touched_larva_cnt <= imageProcessor.detected_larva_num)
                                 {
-                                    while ((viewModel.moveToFishFinished == false) && (all_stop != true))
-                                    {
-                                        Task.Delay(100).Wait();
+                                    imageProcessor.DetectionINIT = false;
+                                    imageProcessor.goToNestLarva();
+                                    if(viewModel.Lines.Count() >= 2){
+                                        moveToFish();
+                                        await Task.Run(() =>
+                                        {
+                                            while ((viewModel.moveToFishFinished == false) && (all_stop != true))
+                                            {
+                                                Task.Delay(100).Wait();
+                                            }
+                                        });
                                     }
-                                });
-
-                                /*
-                                Recording();
-                                await Task.Run(() =>
-                                {
-                                    while (Ximea.Recordingsaving == false)
-                                    {
-                                        Task.Delay(100).Wait();
-                                    }
-                                });
-                                */
+                                    
+                                }
                             }
                             else
                             {
@@ -1032,7 +1033,8 @@ namespace MultiFishTouchResponse
                             imageProcessor.detection_failed = true;
                             Ximea.Recordingsaving = false;
                             Ximea.Recording = false;
-                            viewModel.CannyChecked = false;
+                            //viewModel.CannyChecked = false;
+                            imageProcessor.DetectionINIT = false;
                             viewModel.Lines.Clear();
                             //if((r == pisitionRows.Count-1)&&(c == pisitionCols.Count-1))
                             //{

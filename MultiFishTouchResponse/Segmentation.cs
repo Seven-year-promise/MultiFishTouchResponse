@@ -291,59 +291,78 @@ namespace MultiFishTouchResponse
             dataTransfer = new DataTransformation();
         }
 
-        public NDArray select_big_blobs(Mat binary,
+        public void select_big_blobs(Mat binary,
             out List<List<List<int>>> blobs_tuned,
-            out List<List<int>> closest_blob,
             int[] needle_point,
             int size = 44)
         {
             Mat labels = new Mat();
             int label_num = Cv2.ConnectedComponents(binary, labels);
-
+            blobs_tuned = new List<List<List<int>>>();
             // background: 0, if there exsits larva, the number should be >= 2
             if (label_num >= 2)
             {
                 //var labels_array = dataTransfer.Mat2Array(labels, np.int32);
-                blobs_tuned = new List<List<List<int>>>();
+                var blobs_temp = new List<List<List<int>>>();
                 List<double> distances = new List<double>(9);
-                double distance = 0;
-                int distance_inx = 0;
                 for (int l = 1; l < label_num; l++)
                 {
                     var coordinates = dataOperator.WhereEqual(labels, l);
                     if (coordinates[0].Count() > size)
                     {
-                        blobs_tuned.append(coordinates);
+                        
                         var centerod_y = coordinates[0].Average();
                         var centerod_x = coordinates[1].Average();
                         var new_distance = (centerod_x - needle_point[1]) * (centerod_x - needle_point[1]) + (centerod_y - needle_point[0]) * (centerod_y - needle_point[0]);
-                        if (new_distance < distance)
+                        if (new_distance > 225) //when the blob is 15 pixels away from the needle
                         {
-                            distance_inx = blobs_tuned.Count() - 1;
-                            distance = new_distance;
+                            blobs_temp.append(coordinates);
+                            distances.Add(new_distance);
                         }
+
                     }
                 }
-                var tuned_binary = np.zeros((binary.Rows, binary.Cols), np.int32);
-                if (blobs_tuned.Count() > 0)
+                NDArray distances_array = distances.ToArray();
+                var sorted_inds = distances_array.argsort<List<int>>();
+                //int distance_inx = sorted_inds[0];
+                if (blobs_temp.Count() > 0)
                 {
-                    closest_blob = blobs_tuned[distance_inx];
-
-                    tuned_binary = dataOperator.SetSelection(tuned_binary, closest_blob[0], closest_blob[1], value: 255);
+                    foreach(int ind in sorted_inds)
+                    {
+                        blobs_tuned.Add(blobs_temp[ind]);
+                    }
                 }
-                else
-                {
-                    closest_blob = null;
-                }
-
-
-                return tuned_binary;
             }
             else
             {
                 blobs_tuned = null;
-                closest_blob = null;
-                return null;
+            }
+        }
+
+        public NDArray get_binary_one_blob(int Rows, int Cols, List<List<int>> blob)
+        {
+            
+            var tuned_binary = np.zeros((Rows, Cols), np.int32);
+            tuned_binary = dataOperator.SetSelection(tuned_binary, blob[0], blob[1], value: 255);
+            return tuned_binary;
+        }
+
+        public int[] compare_binary(List<Mat> src)
+        {
+            List<Mat> compared_binaries = new List<Mat>();
+            Mat src_0 = src[0];
+            Mat src_1 = src[1];
+
+            Mat labels = new Mat();
+            int label_num_0 = Cv2.ConnectedComponents(src_0, labels);
+            int label_num_1 = Cv2.ConnectedComponents(src_1, labels);
+            if(label_num_0 > label_num_1)
+            {
+                return new int[2] { 1, 0 };
+            }
+            else
+            {
+                return new int[2] { 0, 1 };
             }
         }
 
@@ -546,6 +565,58 @@ namespace MultiFishTouchResponse
                 fish_point = new int[2] { (int)(fish_area.CenterGravity.Y + ydistance), (int)(fish_area.CenterGravity.X + xdistance) };
             }
             return fish_point;
+        }
+
+
+        public double get_iou(List<List<int>> blobA, List<List<int>> blobB, Shape ori_shape)
+        {
+            NDArray maskA = np.zeros(ori_shape, np.uint8);
+            NDArray maskB = np.zeros(ori_shape, np.uint8);
+            maskA[blobA] = 1;
+            maskB[blobB] = 1;
+
+            //cv2.imshow("maskA", maskA*255)
+            //cv2.imshow("maskB", maskB*255)
+            //cv2.waitKey(0)
+            var A = np.sum(maskA);
+            var B = np.sum(maskB);
+
+            var AplusB = maskA + maskB;
+
+            var AplusB_Mat = dataTransfer.Array2Mat(AplusB);
+            var equal2 = dataOperator.WhereEqual(AplusB_Mat, 2);
+            var AB = equal2[0].Count();
+            //print(A, B, AB)
+
+            return AB / (A + B - AB);
+        }
+           
+        public List<List<int>> find_new_blob(List<List<int>> larva_blob, Mat binary, int size = 44, double iou_thre = 0.5)
+        {
+            List<List<int>> new_blob = null;
+            Mat labels = new Mat();
+            int label_num = Cv2.ConnectedComponents(binary, labels);
+            // background: 0, if there exsits larva, the number should be >= 2
+            if (label_num >= 2)
+            {
+                //var labels_array = dataTransfer.Mat2Array(labels, np.int32);
+
+                List<double> distances = new List<double>(9);
+                for (int l = 1; l < label_num; l++)
+                {
+                    var coordinates = dataOperator.WhereEqual(labels, l);
+                    if (coordinates[0].Count() > size)
+                    {
+                        var iou = get_iou(larva_blob, coordinates, new Shape(binary.Rows, binary.Cols));
+                        if (iou > iou_thre)
+                        {
+                            new_blob = coordinates;
+                            break;
+                        }
+                    }
+                }
+            }
+            return new_blob;
         }
     }
 }
