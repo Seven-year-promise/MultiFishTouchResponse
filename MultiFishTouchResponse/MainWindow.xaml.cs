@@ -35,7 +35,8 @@ namespace MultiFishTouchResponse
         NanotecSet setReset = new NanotecSet();
         NanotecSet setKeyUp = new NanotecSet();
         NanotecSet setKeyDown = new NanotecSet();
-        ImageAnalysis imageAnalysis;
+        //ImageAnalysis imageAnalysis;
+        ImageProcessing imageProcessor;
         public List<Line> Lines = new List<Line>();
         public int StepMode = 16;
         SettingUp Initialization = new SettingUp();
@@ -93,6 +94,7 @@ namespace MultiFishTouchResponse
 
         public MainWindow()
         {
+            
             Initialization.show();
 
 
@@ -156,6 +158,7 @@ namespace MultiFishTouchResponse
             DataContext = viewModel;
             Ximea.viewModel = viewModel;
             DebugWindow = new DebugView(viewModel);
+            imageProcessor = new ImageProcessing(viewModel, DebugWindow);
             viewModel.Lines = Lines;
             viewModel.Border = Border;
             viewModel.StepMode = StepMode;
@@ -164,6 +167,7 @@ namespace MultiFishTouchResponse
             viewModel.WellRows = "00";
             viewModel.WellCols = "00";
             viewModel.fishSelectedPart = wellInformation.fishPartIndex;
+            viewModel.debug = true;
 
             Wellpositions = TxtFileReader("WellPositions.txt");
 
@@ -186,12 +190,13 @@ namespace MultiFishTouchResponse
 
         private void BeginImageAnalysis()
         {
-            imageAnalysis = new ImageAnalysis(Ximea.CameraImageQueue, viewModel, DebugWindow);
+            
             var b1 = new Binding("AnalysedImage");
             b1.Delay = 30;
             BindingOperations.SetBinding(image, Image.SourceProperty, b1);
             ImageRotate.Angle = 0;
             ImageFlip.ScaleY = 1;
+            imageProcessor.run();
         }
 
         private void SetAllMotors(NanotecSet Set, int SetNo, List<NanotecController> Motors)
@@ -887,6 +892,11 @@ namespace MultiFishTouchResponse
                         // over when double clicked!
                         else
                         {
+                            if (viewModel.debug)
+                            {
+                                string this_time = System.DateTime.Now.ToString("HHmmss");
+                                Console.WriteLine("move to next well begin" + this_time);
+                            }
                             WellplateActiveWell.SetValue(Grid.RowProperty, row);
                             WellplateActiveWell.SetValue(Grid.ColumnProperty, col);
                             viewModel.ActiveWellColor = new SolidColorBrush(Colors.Yellow);
@@ -948,6 +958,11 @@ namespace MultiFishTouchResponse
                             viewModel.movePoints.Clear();
                             viewModel.Lines.Clear();
                             Task.Delay(2000).Wait();
+                            if (viewModel.debug)
+                            {
+                                string this_time = System.DateTime.Now.ToString("HHmmss");
+                                Console.WriteLine("move to next well end" + this_time);
+                            }
                             /*
                             await Task.Run(() =>
                             {
@@ -960,52 +975,51 @@ namespace MultiFishTouchResponse
 
 
                             //imageAnalysis = new ImageAnalysis(Ximea.CameraImageQueue, viewModel, DebugWindow);
-                            viewModel.CannyChecked = true;
-                            imageAnalysis.image_not_saving = true;
+                            imageProcessor.DetectionINIT = true;
+                            //viewModel.CannyChecked = true;
+                            //imageAnalysis.image_not_saving = true;
                             //imageAnalysis.Begin();
-
+                            //imageProcessor.run();
                             //var b1 = new Binding("AnalysedImage");
                             //b1.Delay = 30;
                             //BindingOperations.SetBinding(image, Image.SourceProperty, b1);
                             //ImageRotate.Angle = 0;
                             //ImageFlip.ScaleY = 1;
-                            imageAnalysis.needleAdded = false;
+                            //imageAnalysis.needleAdded = false;
 
                             await Task.Run(() =>
                             {
-                                int waiting_time = 0;
-                                while (viewModel.Lines.Count < 2)
+                                // stop when already waited for 20 seconds, or when the detection dailed
+                                int waiting_cnt = 0;
+                                while (waiting_cnt < 200)
                                 {
                                     Task.Delay(100).Wait();
-                                    waiting_time++;
-                                    if (waiting_time > 20)
+                                    waiting_cnt++;
+                                    if (imageProcessor.detection_failed)
                                         break;
                                 }
                             });
 
 
                             //
-                            if (viewModel.Lines.Count >= 2)
+                            if(imageProcessor.detected_larva_num > 0)
                             {
-                                moveToFish();
-                                await Task.Run(() =>
+                                while (imageProcessor.touched_larva_cnt <= imageProcessor.detected_larva_num)
                                 {
-                                    while ((viewModel.moveToFishFinished == false) && (all_stop != true))
-                                    {
-                                        Task.Delay(100).Wait();
+                                    imageProcessor.DetectionINIT = false;
+                                    imageProcessor.goToNestLarva();
+                                    if(viewModel.Lines.Count() >= 2){
+                                        moveToFish();
+                                        await Task.Run(() =>
+                                        {
+                                            while ((viewModel.moveToFishFinished == false) && (all_stop != true))
+                                            {
+                                                Task.Delay(100).Wait();
+                                            }
+                                        });
                                     }
-                                });
-
-                                /*
-                                Recording();
-                                await Task.Run(() =>
-                                {
-                                    while (Ximea.Recordingsaving == false)
-                                    {
-                                        Task.Delay(100).Wait();
-                                    }
-                                });
-                                */
+                                    
+                                }
                             }
                             else
                             {
@@ -1014,12 +1028,13 @@ namespace MultiFishTouchResponse
                             }
 
 
-                            imageAnalysis.image_not_saving = false;
+                            //imageAnalysis.image_not_saving = false;
                             //imageAnalysis.Dispose();
-
+                            imageProcessor.detection_failed = true;
                             Ximea.Recordingsaving = false;
                             Ximea.Recording = false;
-                            viewModel.CannyChecked = false;
+                            //viewModel.CannyChecked = false;
+                            imageProcessor.DetectionINIT = false;
                             viewModel.Lines.Clear();
                             //if((r == pisitionRows.Count-1)&&(c == pisitionCols.Count-1))
                             //{
@@ -1045,29 +1060,33 @@ namespace MultiFishTouchResponse
         private void checkBox_UseAnalysedImage_Checked(object sender, RoutedEventArgs e)
         {
             //List<WriteableBitmap> RecordingQueueBuffer = new List<WriteableBitmap>(Ximea.CameraImageQueue);
-            imageAnalysis = new ImageAnalysis(Ximea.CameraImageQueue, viewModel, DebugWindow);
-            var b1 = new Binding("AnalysedImage");
-            b1.Delay = 30;
-            BindingOperations.SetBinding(image, Image.SourceProperty, b1);
-            ImageRotate.Angle = 0;
-            ImageFlip.ScaleY = 1;
+            //imageAnalysis = new ImageAnalysis(Ximea.CameraImageQueue, viewModel, DebugWindow);
+            //var b1 = new Binding("AnalysedImage");
+            //b1.Delay = 30;
+            //BindingOperations.SetBinding(image, Image.SourceProperty, b1);
+            //ImageRotate.Angle = 0;
+            //ImageFlip.ScaleY = 1;
+            imageProcessor.Begin();
+            //imageProcessor.run();
         }
 
         private void checkBox_UseAnalysedImage_Unchecked(object sender, RoutedEventArgs e)
         {
+            /*
             imageAnalysis.Dispose();
             var b1 = new Binding("CurrentCameraImage");
             b1.Delay = 30;
             BindingOperations.SetBinding(image, Image.SourceProperty, b1);
             ImageRotate.Angle = 90;
             ImageFlip.ScaleY = -1;
+            */
+            imageProcessor.Dispose();
         }
 
         private void textBox_Videoname_TextChanged(object sender, TextChangedEventArgs e)
         {
             viewModel.Videoname = textBox_Videoname.Text;
         }
-
 
     }
 }

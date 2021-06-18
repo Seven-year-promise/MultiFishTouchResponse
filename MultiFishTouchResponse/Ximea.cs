@@ -74,7 +74,7 @@ namespace MultiFishTouchResponse
                         recordingwatch.Start();
                         if (System.Runtime.GCSettings.LatencyMode != System.Runtime.GCLatencyMode.NoGCRegion)
                         {
-                            GC.TryStartNoGCRegion(10000000000, true); //10GB
+                            GC.TryStartNoGCRegion(100000000, true); //0.1GB
                         }
                     }
                     timestampbuffer.Add(Timestamp);
@@ -98,7 +98,7 @@ namespace MultiFishTouchResponse
                     byte[] bits = new byte[height * stride];
                     //check if filename exists and if yes add a counter
                     int filecounter = 1;
-                    string fileNameOnly = viewModel.Videoname + "_" + System.DateTime.Now.ToString("HHmmss") + "_Speed" + viewModel.final_speed_factor;
+                    string fileNameOnly = viewModel.Videoname;
                     string extension = ".avi";
                     string newFullPath = Path + "\\" + fileNameOnly + extension;
                     System.IO.File.WriteAllLines(Path + "\\" + fileNameOnly + "_timestamps.txt", timestampbuffer.Select(d => d.ToString()));
@@ -110,6 +110,8 @@ namespace MultiFishTouchResponse
                         newFullPath = System.IO.Path.Combine(Path, tempFileName + extension);
                     }
 
+                    string this_time = System.DateTime.Now.ToString("HHmmss");
+                    Console.WriteLine("saving begin" + this_time);
                     //create File
                     //var memstream = new System.IO.MemoryStream();
                     var memstream = new LiquidEngine.Tools.MemoryTributary();
@@ -153,7 +155,10 @@ namespace MultiFishTouchResponse
                         task.Wait();
                         GC.Collect();
                         Recordingsaving = true;
+                        this_time = System.DateTime.Now.ToString("HHmmss");
+                        Console.WriteLine("saving end" + this_time);
                     });
+                    
                 }
                 counter++;
                 //viewModel.RecordingButtonText = counter + "-" + watch.ElapsedMilliseconds/1000 + "-" + Framerate.ToString("0");

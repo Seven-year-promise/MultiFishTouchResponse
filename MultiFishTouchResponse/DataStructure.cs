@@ -5,6 +5,9 @@ using System.Text;
 using System.Threading.Tasks;
 using OpenCvSharp;
 using NumSharp;
+using System.Windows.Media.Imaging;
+using System.Drawing;
+using System.Drawing.Imaging;
 
 namespace MultiFishTouchResponse
 {
@@ -171,14 +174,103 @@ namespace MultiFishTouchResponse
             return out_mat;
         }
 
-        public System.Drawing.Bitmap Mat2Bitmap(Mat src)
+        public NDArray List2NDArray2D(List<List<int>> src)
+        {
+            int s_num = src[0].Count();
+            NDArray skeleton_cor_array = new NDArray(np.int32, new Shape(new int[2] { s_num, 2 }));
+            skeleton_cor_array[Slice.All, 0] = src[0].ToArray();
+            skeleton_cor_array[Slice.All, 1] = src[1].ToArray();
+
+            return skeleton_cor_array;
+        }
+
+        public Bitmap Mat2Bitmap(Mat src)
         {
             return OpenCvSharp.Extensions.BitmapConverter.ToBitmap(src);
         }
 
-        public Mat Bitmap2Mat(System.Drawing.Bitmap src)
+        public Mat Bitmap2Mat(Bitmap src)
         {
             return OpenCvSharp.Extensions.BitmapConverter.ToMat(src);
         }
+        /*
+        public BitmapSource Mat2BitmapSource(Mat src)
+        {
+            var temp = Mat2Bitmap(src);
+            return GetBitmapSource(temp);
+        }
+
+        public Mat BitmapSource2Mat(BitmapSource src)
+        {
+            var temp = BitmapFromSource(src);
+            return Bitmap2Mat(temp);
+        }
+
+        
+        public  Bitmap BitmapFromSource(BitmapSource bitmapsource)
+        {
+            System.Drawing.Bitmap bitmap;
+            using (System.IO.MemoryStream outStream = new System.IO.MemoryStream())
+            {
+                BitmapEncoder enc = new BmpBitmapEncoder();
+                enc.Frames.Add(BitmapFrame.Create(bitmapsource));
+                enc.Save(outStream);
+                bitmap = new System.Drawing.Bitmap(outStream);
+            }
+            return bitmap;
+        }
+
+
+        public BitmapSource GetBitmapSource(Bitmap image)
+        {
+            var rect = new Rectangle(0, 0, image.Width, image.Height);
+            var bitmap_data = image.LockBits(rect, ImageLockMode.ReadOnly, image.PixelFormat);
+
+            try
+            {
+                BitmapPalette palette = null;
+
+                if (image.Palette.Entries.Length > 0)
+                {
+                    var palette_colors = image.Palette.Entries.Select(entry => System.Windows.Media.Color.FromArgb(entry.A, entry.R, entry.G, entry.B)).ToList();
+                    palette = new BitmapPalette(palette_colors);
+                }
+
+                return BitmapSource.Create(
+                    image.Width,
+                    image.Height,
+                    image.HorizontalResolution,
+                    image.VerticalResolution,
+                    ConvertPixelFormat(image.PixelFormat),
+                    palette,
+                    bitmap_data.Scan0,
+                    bitmap_data.Stride * image.Height,
+                    bitmap_data.Stride
+                );
+            }
+            finally
+            {
+                image.UnlockBits(bitmap_data);
+            }
+        }
+
+        private static System.Windows.Media.PixelFormat ConvertPixelFormat(System.Drawing.Imaging.PixelFormat sourceFormat)
+        {
+            switch (sourceFormat)
+            {
+                case System.Drawing.Imaging.PixelFormat.Format24bppRgb:
+                    return System.Windows.Media.PixelFormats.Bgr24;
+
+                case System.Drawing.Imaging.PixelFormat.Format32bppArgb:
+                    return System.Windows.Media.PixelFormats.Bgra32;
+
+                case System.Drawing.Imaging.PixelFormat.Format32bppRgb:
+                    return System.Windows.Media.PixelFormats.Bgr32;
+            }
+
+            return new System.Windows.Media.PixelFormat();
+        }
+        */
+
     }
 }
