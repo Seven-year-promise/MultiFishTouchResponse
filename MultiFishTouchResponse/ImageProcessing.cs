@@ -167,71 +167,80 @@ namespace MultiFishTouchResponse
             var gray = new Mat();
             //Cv2.CvtColor(src: src, dst: gray, code: ColorConversionCodes.BGR2GRAY);
             var masked_im = well_detection(src, out well_info_ori);
-            Cv2.Circle(this.analyzed_color, centerX: this.well_info_ori[1], 
-                centerY: this.well_info_ori[0], this.well_info_ori[2], new Scalar(255, 255, 0), 2);
-            Cv2.ImWrite(Ximea.Path + "\\" + viewModel.Videoname + "_well.jpg", masked_im);
-            Rect well_area = new Rect((this.well_info_ori[1] - 120), (this.well_info_ori[0] - 120), 240, 240);
-            var im_block = masked_im[well_area];
-            // TODO  I do now know why, need to check it later
-            //Ximea.StopCamera = true;
-            //Task.Delay(500).Wait();  // wait until camera stops
-            if (viewModel.debug)
+            if (masked_im == null)
             {
-                string this_time = System.DateTime.Now.ToString("HHmmss");
-                Console.WriteLine("unet begin " + this_time);
-            }
-            //var needle_point = needle_detector.run(im_block);
-            var binaries = unet.run(im_block);
-            var binary_inds = post_processor.compare_binary(binaries); // make sure the first binary is the needle.
-            if (viewModel.debug)
-            {
-                string this_time = System.DateTime.Now.ToString("HHmmss");
-                Console.WriteLine("unet end " + this_time);
-            }
-            this.needle_binary = new Mat(src.Rows, src.Cols, MatType.CV_8UC1, new Scalar(0));
-            this.larva_binary = new Mat(src.Rows, src.Cols, MatType.CV_8UC1, new Scalar(0));
-            this.needle_binary[well_area] = binaries[binary_inds[0]];
-            this.larva_binary[well_area] = binaries[binary_inds[1]];
-
-            Cv2.ImWrite(Ximea.Path + "\\" + viewModel.Videoname + "_binary_needle.jpg", this.needle_binary);
-            Cv2.ImWrite(Ximea.Path + "\\" + viewModel.Videoname + "_binary_larva.jpg", this.larva_binary);
-
-
-            this.needle_point = post_processor.find_needle_point(this.needle_binary, src);
-            //needle_point = needle_detector.run(im_block);
-            //needle_point[0] = 100;
-            //needle_point[1] = 300;
-            if (this.needle_point != null)
-            {
-                //Mat needle_display = new Mat();
-                //src.CopyTo(needle_display);
-                
-                post_processor.select_big_blobs(this.larva_binary, out List<List<List<int>>> larva_blobs, this.needle_point, size: 12);
-                //closest_blob = null;
-                this.detected_larva_num = larva_blobs.Count();
-                if (this.detected_larva_num > 0)
-                {
-                    this.new_larva_blobs = larva_blobs;
-                }
-                else{
-                    detection_failed = true;
-                }
+                detection_failed = true;
+                this.DetectionINIT = false;
+                src.Release();
             }
             else
             {
-                detection_failed = true;
-            }
-            this.DetectionINIT = false;
-            //var analysed_bitmap = dataTransfer.Mat2Bitmap(src);
-            //var bitmapsource = ConvertBitmap(analysed_bitmap);
+                Cv2.Circle(this.analyzed_color, centerX: this.well_info_ori[1], 
+                    centerY: this.well_info_ori[0], this.well_info_ori[2], new Scalar(255, 255, 0), 2);
+                Cv2.ImWrite(Ximea.Path + "\\" + viewModel.Videoname + "_well.jpg", masked_im);
+                Rect well_area = new Rect((this.well_info_ori[1] - 120), (this.well_info_ori[0] - 120), 240, 240);
+                var im_block = masked_im[well_area];
+                // TODO  I do now know why, need to check it later
+                //Ximea.StopCamera = true;
+                //Task.Delay(500).Wait();  // wait until camera stops
+                if (viewModel.debug)
+                {
+                    string this_time = System.DateTime.Now.ToString("HHmmss");
+                    Console.WriteLine("unet begin " + this_time);
+                }
+                //var needle_point = needle_detector.run(im_block);
+                var binaries = unet.run(im_block);
+                var binary_inds = post_processor.compare_binary(binaries); // make sure the first binary is the needle.
+                if (viewModel.debug)
+                {
+                    string this_time = System.DateTime.Now.ToString("HHmmss");
+                    Console.WriteLine("unet end " + this_time);
+                }
+                this.needle_binary = new Mat(src.Rows, src.Cols, MatType.CV_8UC1, new Scalar(0));
+                this.larva_binary = new Mat(src.Rows, src.Cols, MatType.CV_8UC1, new Scalar(0));
+                this.needle_binary[well_area] = binaries[binary_inds[0]];
+                this.larva_binary[well_area] = binaries[binary_inds[1]];
 
-            //bitmapsource.Freeze();
-            //viewModel.AnalysedImage = bitmapsource;
-            src.Release();
-            if (viewModel.debug)
-            {
-                string this_time = System.DateTime.Now.ToString("HHmmss");
-                Console.WriteLine("image processing end" + this_time);
+                Cv2.ImWrite(Ximea.Path + "\\" + viewModel.Videoname + "_binary_needle.jpg", this.needle_binary);
+                Cv2.ImWrite(Ximea.Path + "\\" + viewModel.Videoname + "_binary_larva.jpg", this.larva_binary);
+
+
+                this.needle_point = post_processor.find_needle_point(this.needle_binary, src);
+                //needle_point = needle_detector.run(im_block);
+                //needle_point[0] = 100;
+                //needle_point[1] = 300;
+                if (this.needle_point != null)
+                {
+                    //Mat needle_display = new Mat();
+                    //src.CopyTo(needle_display);
+                
+                    post_processor.select_big_blobs(this.larva_binary, out List<List<List<int>>> larva_blobs, this.needle_point, size: 12);
+                    //closest_blob = null;
+                    this.detected_larva_num = larva_blobs.Count();
+                    if (this.detected_larva_num > 0)
+                    {
+                        this.new_larva_blobs = larva_blobs;
+                    }
+                    else{
+                        detection_failed = true;
+                    }
+                }
+                else
+                {
+                    detection_failed = true;
+                }
+                this.DetectionINIT = false;
+                //var analysed_bitmap = dataTransfer.Mat2Bitmap(src);
+                //var bitmapsource = ConvertBitmap(analysed_bitmap);
+
+                //bitmapsource.Freeze();
+                //viewModel.AnalysedImage = bitmapsource;
+                src.Release();
+                if (viewModel.debug)
+                {
+                    string this_time = System.DateTime.Now.ToString("HHmmss");
+                    Console.WriteLine("image processing end" + this_time);
+                }
             }
         }
 
@@ -262,39 +271,45 @@ namespace MultiFishTouchResponse
                 var gray = new Mat();
                 //Cv2.CvtColor(src: src, dst: gray, code: ColorConversionCodes.BGR2GRAY);
                 var masked_im = well_detection(src, out this.well_info_ori);
-                Cv2.Circle(this.analyzed_color, centerX: this.well_info_ori[1], centerY: this.well_info_ori[0], this.well_info_ori[2], new Scalar(255, 255, 0), 2);
-                Cv2.ImWrite(Ximea.Path + "\\" + viewModel.Videoname + "_well.jpg", masked_im);
-                //make sure where the needle is
-                this.needle_point = post_processor.needle_usingMaxima(masked_im, this.needle_point, 14);
-                Rect well_area = new Rect((this.well_info_ori[1] - 120), (this.well_info_ori[0] - 120), 240, 240);
-                var im_block = masked_im[well_area];
-                // TODO  I do now know why, need to check it later
-                //Ximea.StopCamera = true;
-                //Task.Delay(500).Wait();  // wait until camera stops
-                if (viewModel.debug)
+                if (masked_im == null)
                 {
-                    string this_time = System.DateTime.Now.ToString("HHmmss");
-                    Console.WriteLine("unet begin " + this_time);
+                    this.larva_binary = null;
                 }
-                //var needle_point = needle_detector.run(im_block);
-                var binaries = unet.run(im_block);
-                var binary_inds = post_processor.compare_binary(binaries); // make sure the first binary is the needle.
-                if (viewModel.debug)
+                else
                 {
-                    string this_time = System.DateTime.Now.ToString("HHmmss");
-                    Console.WriteLine("unet end " + this_time);
+                    Cv2.Circle(this.analyzed_color, centerX: this.well_info_ori[1], centerY: this.well_info_ori[0], this.well_info_ori[2], new Scalar(255, 255, 0), 2);
+                    Cv2.ImWrite(Ximea.Path + "\\" + viewModel.Videoname + "_well.jpg", masked_im);
+                    //make sure where the needle is
+                    this.needle_point = post_processor.needle_usingMaxima(masked_im, this.needle_point, 14);
+                    Rect well_area = new Rect((this.well_info_ori[1] - 120), (this.well_info_ori[0] - 120), 240, 240);
+                    var im_block = masked_im[well_area];
+                    // TODO  I do now know why, need to check it later
+                    //Ximea.StopCamera = true;
+                    //Task.Delay(500).Wait();  // wait until camera stops
+                    if (viewModel.debug)
+                    {
+                        string this_time = System.DateTime.Now.ToString("HHmmss");
+                        Console.WriteLine("unet begin " + this_time);
+                    }
+                    //var needle_point = needle_detector.run(im_block);
+                    var binaries = unet.run(im_block);
+                    var binary_inds = post_processor.compare_binary(binaries); // make sure the first binary is the needle.
+                    if (viewModel.debug)
+                    {
+                        string this_time = System.DateTime.Now.ToString("HHmmss");
+                        Console.WriteLine("unet end " + this_time);
+                    }
+                    this.larva_binary = new Mat(src.Rows, src.Cols, MatType.CV_8UC1, new Scalar(0));
+                    this.larva_binary[well_area] = binaries[binary_inds[1]];
+                    Cv2.ImWrite(Ximea.Path + "\\" + viewModel.Videoname + "_binary_needle.jpg", this.needle_binary);
+                    Cv2.ImWrite(Ximea.Path + "\\" + viewModel.Videoname + "_binary_larva.jpg", this.larva_binary);
+                    src.Release();
+                    if (viewModel.debug)
+                    {
+                        string this_time = System.DateTime.Now.ToString("HHmmss");
+                        Console.WriteLine("image processing end" + this_time);
+                    }
                 }
-                this.larva_binary = new Mat(src.Rows, src.Cols, MatType.CV_8UC1, new Scalar(0));
-                this.larva_binary[well_area] = binaries[binary_inds[1]];
-                Cv2.ImWrite(Ximea.Path + "\\" + viewModel.Videoname + "_binary_needle.jpg", this.needle_binary);
-                Cv2.ImWrite(Ximea.Path + "\\" + viewModel.Videoname + "_binary_larva.jpg", this.larva_binary);
-                src.Release();
-                if (viewModel.debug)
-                {
-                    string this_time = System.DateTime.Now.ToString("HHmmss");
-                    Console.WriteLine("image processing end" + this_time);
-                }
-
             }
             catch (Exception ex)
             {
@@ -352,6 +367,7 @@ namespace MultiFishTouchResponse
                 }
                 this.touched_larva_cnt += 1;
             }
+            System.IO.File.WriteAllLines(Ximea.Path + "\\" + viewModel.Videoname + "_needle_point.txt", this.needle_point.Select(diff => diff.ToString()));
             Cv2.ImWrite(Ximea.Path + "\\" + viewModel.Videoname + "_analyzed.jpg", this.analyzed_color);
             this.got_next_fished = true;
         }
@@ -360,7 +376,7 @@ namespace MultiFishTouchResponse
         {
             var rows = im.Height;
             var circles = Cv2.HoughCircles(im, HoughMethods.Gradient, 1, rows / 5,
-                                            param1: 240, param2: 50,
+                                            param1: 220, param2: 30,
                                             minRadius: 95, maxRadius: 105);
             int well_centerx = 0;
             int well_centery = 0;
@@ -368,68 +384,70 @@ namespace MultiFishTouchResponse
             var circle_num = circles.Count();
 
             if (circle_num > 0) {
-                float[,] circles_array = new float[circle_num, 2];
+                float[,] circles_array = new float[circle_num, 3];
                 for (int i = 0; i < circle_num; i++)
                 {
                     circles_array[i, 0] = circles[i].Center.Y;
                     circles_array[i, 1] = circles[i].Center.X;
+                    circles_array[i, 2] = circles[i].Radius;
                 }
                 var ArrayOperate = new DataStructure<float>();
                 var xs = ArrayOperate.GetColumn(circles_array, 1);
                 well_centerx = (int)(Queryable.Average(xs.AsQueryable()));
                 var ys = ArrayOperate.GetColumn(circles_array, 0);
                 well_centery = (int)(Queryable.Average(ys.AsQueryable()));
-                well_radius = 115; //np.uint16(np.round(np.average(circles[0, :, 2])))
+                var rs = ArrayOperate.GetColumn(circles_array, 2);
+                well_radius = (int)(Queryable.Average(rs.AsQueryable())); //np.uint16(np.round(np.average(circles[0, :, 2])))
+                                                                          //return False, (240, 240, 110)
+
+                //first rough mask for well detection
+                var gray_masked = new Mat();
+
+                using (var mask = new Mat(rows, rows, MatType.CV_8UC1, new Scalar(0)))
+                {
+                    Cv2.Circle(img: mask,
+                               centerX: well_centerx, centerY: well_centery,
+                               radius: well_radius, new Scalar(255), -1, LineTypes.Link8, 0);
+                    Cv2.BitwiseAnd(im, mask, gray_masked);
+                }
+
+
+                // second fine-tuned mask
+                var th = new Mat();
+                Cv2.Threshold(gray_masked, th, threshold, 255, ThresholdTypes.Binary);
+                Mat element = Cv2.GetStructuringElement(MorphShapes.Rect, new Size(10, 10));
+                var closing = new Mat();
+                Cv2.MorphologyEx(th, closing, MorphTypes.Close, element);
+                var im_closing = new Mat();
+                Cv2.BitwiseAnd(im, closing, im_closing);
+
+                var white_indexes = dataOperator.WhereEqual(closing, 255);
+                well_centery = (int)(Math.Round(white_indexes[0].Average()));
+                well_centerx = (int)(Math.Round(white_indexes[1].Average()));
+
+                // third fine-tuned mask for background white
+                var closing_inv = new Mat();
+                Cv2.BitwiseNot(closing, closing_inv);
+                //closing_inv = np.array((closing_inv, closing_inv, closing_inv)).transpose(1, 2, 0);
+                var im_closing_inv = closing_inv + im_closing;
+
+                /*
+                Cv2.Circle(im, well_centerx, well_centery, 104, new Scalar(0, 255, 0), 1);
+                using (new Window("well", im))
+                {
+                    Cv2.WaitKey(0);
+                }
+                */
+                well_radius = 95;
+                well_info = new int[3] { well_centery, well_centerx, well_radius };
+
+                return im_closing_inv;
             }
             else {
-                well_centerx = 240;
-                well_centery = 240;
-                well_radius = 115;
+                well_info = null;
+                return null;
             }
-            //return False, (240, 240, 110)
-
-            //first rough mask for well detection
-            var gray_masked = new Mat();
-
-            using (var mask = new Mat(rows, rows, MatType.CV_8UC1, new Scalar(0)))
-            {
-                Cv2.Circle(img: mask,
-                           centerX: well_centerx, centerY: well_centery,
-                           radius: well_radius, new Scalar(255), -1, LineTypes.Link8, 0);
-                Cv2.BitwiseAnd(im, mask, gray_masked);
-            }
-
-
-            // second fine-tuned mask
-            var th = new Mat();
-            Cv2.Threshold(gray_masked, th, threshold, 255, ThresholdTypes.Binary);
-            Mat element = Cv2.GetStructuringElement(MorphShapes.Rect, new Size(10, 10));
-            var closing = new Mat();
-            Cv2.MorphologyEx(th, closing, MorphTypes.Close, element);
-            var im_closing = new Mat();
-            Cv2.BitwiseAnd(im, closing, im_closing);
-
-            var white_indexes = dataOperator.WhereEqual(closing, 255);
-            well_centery = (int)(Math.Round(white_indexes[0].Average()));
-            well_centerx = (int)(Math.Round(white_indexes[1].Average()));
-
-            // third fine-tuned mask for background white
-            var closing_inv = new Mat();
-            Cv2.BitwiseNot(closing, closing_inv);
-            //closing_inv = np.array((closing_inv, closing_inv, closing_inv)).transpose(1, 2, 0);
-            var im_closing_inv = closing_inv + im_closing;
-
-            /*
-            Cv2.Circle(im, well_centerx, well_centery, 104, new Scalar(0, 255, 0), 1);
-            using (new Window("well", im))
-            {
-                Cv2.WaitKey(0);
-            }
-            */
-            well_radius = 95;
-            well_info = new int[3] { well_centery, well_centerx, well_radius };
-
-            return im_closing_inv;
+            
         }
 
         public void TrajectoryGenerate(int[] fish_point, int[] well_info, double angle, int distancefromfish)
