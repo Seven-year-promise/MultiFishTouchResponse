@@ -1,0 +1,73 @@
+﻿<Window x:Class="MultiFishTouchResponse.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:local="clr-namespace:MultiFishTouchResponse"
+        mc:Ignorable="d"
+        Title="MainWindow" Height="360" Width="739" KeyDown="OnKeyDownHandler" KeyUp="OnKeyUpHandler">
+    <Grid x:Name="Grid" Margin="0,0,231,0">
+        <Grid x:Name="ImageGrid" Margin="10,10,200,10" HorizontalAlignment="Left" VerticalAlignment="Top">
+            <Border x:Name="Border" BorderThickness="1" BorderBrush="#FF000000"  VerticalAlignment="Top" HorizontalAlignment="Left">
+                <Image x:Name="image" Source="{Binding CurrentCameraImage}" RenderTransformOrigin="0.5,0.5" PreviewMouseMove="image_PreviewMouseMove" MouseLeftButtonDown="image_MouseLeftButtonDown" UseLayoutRounding="True" VerticalAlignment="Top" HorizontalAlignment="Left" >
+                    <Image.RenderTransform>
+                        <TransformGroup>
+                            <SkewTransform/>
+                            <ScaleTransform x:Name="ImageFlip" ScaleY="-1"/>
+                            <RotateTransform x:Name="ImageRotate"  Angle="90"/>
+                            <TranslateTransform/>
+                        </TransformGroup>
+                    </Image.RenderTransform>
+                </Image>
+            </Border>
+        </Grid>
+        <Button x:Name="button_Recording" Content="{Binding RecordingButtonText}" IsEnabled="{Binding IsAvailableForRecording}" Width="75" Height="20" Margin="0,10,49,0" Click="button_Click" UseLayoutRounding="True" HorizontalAlignment="Right" VerticalAlignment="Top" />
+        <Button x:Name="button_stop" Content="Stop Motors" Margin="0,283,-190,0" Width="75" Click="button1_Click" Height="20" HorizontalAlignment="Right" VerticalAlignment="Top"/>
+        <Button x:Name="button_down" Content="{Binding motor5.Motorposition}" Height="20" Margin="0,213,-151,0" Width="75" Click="button_down_Click" HorizontalAlignment="Right" VerticalAlignment="Top"/>
+        <Button x:Name="button_up" Content="{Binding motor2.Motorposition}" Height="20" Margin="0,163,-151,0" Width="75" Click="button_up_Click" HorizontalAlignment="Right" VerticalAlignment="Top"/>
+        <Button x:Name="button_left" Content="{Binding motor4.Motorposition}" Height="20" Margin="0,188,-110,0" Width="75" Click="button_left_Click" HorizontalAlignment="Right" VerticalAlignment="Top"/>
+        <Button x:Name="button_right" Content="{Binding motor1.Motorposition}" Height="20" Margin="0,188,-190,0" Width="75" Click="button_right_Click" HorizontalAlignment="Right" VerticalAlignment="Top"/>
+        <Button x:Name="button_zDown" Content="{Binding motor3.Motorposition}" Height="20" Margin="0,122,-151,0" Width="75" Click="button_zdown_Click" HorizontalAlignment="Right" VerticalAlignment="Top"/>
+        <Button x:Name="button_Zup" Content="{Binding motor3.Motorposition}" Height="20" Margin="0,97,-151,0" Width="75" Click="button_zup_Click" HorizontalAlignment="Right" VerticalAlignment="Top"/>
+        <Button x:Name="button_reset" Content="Reset Motors" Height="20" Margin="0,283,-110,0" Width="75" Click="button_reset_Click" HorizontalAlignment="Right" VerticalAlignment="Top"/>
+        <CheckBox x:Name="checkBox_CameraLock" Content="Lock Camera Position" Margin="0,262,-166,0" Checked="checkBox_CameraLock_Checked" Unchecked="checkBox_CameraLock_Unchecked" HorizontalAlignment="Right" VerticalAlignment="Top"/>
+        <CheckBox x:Name="checkBox_UseAnalysedImage" Content="Use Analysed Image" Margin="0,245,-160,0" Checked="checkBox_UseAnalysedImage_Checked" Unchecked="checkBox_UseAnalysedImage_Unchecked" HorizontalAlignment="Right" VerticalAlignment="Top"/>
+        <CheckBox x:Name="checkBox_WellCol1" Content="1" Margin="0,61,128,245" Checked="checkBox_WellCol1_Checked" Unchecked="checkBox_WellCol1_Unchecked" HorizontalAlignment="Right" Width="30"/>
+        <CheckBox x:Name="checkBox_WellCol2" Content="2" Margin="0,61,98,245" Checked="checkBox_WellCol2_Checked" Unchecked="checkBox_WellCol2_Unchecked" HorizontalAlignment="Right" Width="30"/>
+        <CheckBox x:Name="checkBox_WellCol3" Content="3" Margin="0,61,68,245" Checked="checkBox_WellCol3_Checked" Unchecked="checkBox_WellCol3_Unchecked" HorizontalAlignment="Right" Width="30"/>
+        <CheckBox x:Name="checkBox_WellCol4" Content="4" Margin="0,61,38,245" Checked="checkBox_WellCol4_Checked" Unchecked="checkBox_WellCol4_Unchecked" HorizontalAlignment="Right" Width="30"/>
+        <CheckBox x:Name="checkBox_WellCol5" Content="5" Margin="0,61,8,245" Checked="checkBox_WellCol5_Checked" Unchecked="checkBox_WellCol5_Unchecked" HorizontalAlignment="Right" Width="30"/>
+        <CheckBox x:Name="checkBox_WellCol6" Content="6" Margin="0,61,-22,245" Checked="checkBox_WellCol6_Checked" Unchecked="checkBox_WellCol6_Unchecked" HorizontalAlignment="Right" Width="30"/>
+        <CheckBox x:Name="checkBox_WellCol7" Content="7" Margin="0,61,-52,245" Checked="checkBox_WellCol7_Checked" Unchecked="checkBox_WellCol7_Unchecked" HorizontalAlignment="Right" Width="30"/>
+        <CheckBox x:Name="checkBox_WellCol8" Content="8" Margin="0,61,-82,245" Checked="checkBox_WellCol8_Checked" Unchecked="checkBox_WellCol8_Unchecked" HorizontalAlignment="Right" Width="30"/>
+        <CheckBox x:Name="checkBox_WellCol9" Content="9" Margin="0,61,-112,245" Checked="checkBox_WellCol9_Checked" Unchecked="checkBox_WellCol9_Unchecked" HorizontalAlignment="Right" Width="30"/>
+        <CheckBox x:Name="checkBox_WellCol10" Content="10" Margin="0,61,-152,245" Checked="checkBox_WellCol10_Checked" Unchecked="checkBox_WellCol10_Unchecked" HorizontalAlignment="Right" Width="38"/>
+        <CheckBox x:Name="checkBox_WellCol11" Content="11" Margin="0,61,-192,245" Checked="checkBox_WellCol11_Checked" Unchecked="checkBox_WellCol11_Unchecked" HorizontalAlignment="Right" Width="38"/>
+        <CheckBox x:Name="checkBox_WellCol12" Content="12" Margin="0,61,-232,245" Checked="checkBox_WellCol12_Checked" Unchecked="checkBox_WellCol12_Unchecked" HorizontalAlignment="Right" Width="38"/>
+
+        <CheckBox x:Name="checkBox_WellRowA" Content="A" Margin="312,90,146,0" Checked="checkBox_WellRowA_Checked" Unchecked="checkBox_WellRowA_Unchecked" VerticalAlignment="Top"/>
+        <CheckBox x:Name="checkBox_WellRowB" Content="B" Margin="312,120,146,0" Checked="checkBox_WellRowB_Checked" Unchecked="checkBox_WellRowB_Unchecked" VerticalAlignment="Top"/>
+        <CheckBox x:Name="checkBox_WellRowC" Content="C" Margin="312,150,146,0" Checked="checkBox_WellRowC_Checked" Unchecked="checkBox_WellRowC_Unchecked" VerticalAlignment="Top"/>
+        <CheckBox x:Name="checkBox_WellRowD" Content="D" Margin="312,180,146,0" Checked="checkBox_WellRowD_Checked" Unchecked="checkBox_WellRowD_Unchecked" VerticalAlignment="Top"/>
+        <CheckBox x:Name="checkBox_WellRowE" Content="E" Margin="312,210,146,0" Checked="checkBox_WellRowE_Checked" Unchecked="checkBox_WellRowE_Unchecked" VerticalAlignment="Top"/>
+        <CheckBox x:Name="checkBox_WellRowF" Content="F" Margin="312,240,146,0" Checked="checkBox_WellRowF_Checked" Unchecked="checkBox_WellRowF_Unchecked" VerticalAlignment="Top"/>
+        <CheckBox x:Name="checkBox_WellRowG" Content="G" Margin="312,270,146,0" Checked="checkBox_WellRowG_Checked" Unchecked="checkBox_WellRowG_Unchecked" VerticalAlignment="Top"/>
+        <CheckBox x:Name="checkBox_WellRowH" Content="H" Margin="312,300,146,0" Checked="checkBox_WellRowH_Checked" Unchecked="checkBox_WellRowH_Unchecked" VerticalAlignment="Top"/>
+        <Label x:Name="Begin_Experiment" Content="Begin Experiment" HorizontalAlignment="Right" Margin="0,130,26,0" VerticalAlignment="Top" Width="111"/>
+        <Border HorizontalAlignment="Right" VerticalAlignment="Top"  BorderBrush="Black" BorderThickness="2" Width="63" Height="29" Margin="0,153,51,0">
+            <Grid x:Name="WellplateGrid" VerticalAlignment="Stretch" HorizontalAlignment="Stretch"  ShowGridLines="True" Background="White" MouseLeftButtonDown="WellplateGrid_MouseLeftButtonDown" Margin="-1">
+                <Grid.RowDefinitions>
+                    <RowDefinition/>
+                </Grid.RowDefinitions>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition/>
+                </Grid.ColumnDefinitions>
+                <Rectangle x:Name="WellplateActiveWell" Fill="{Binding ActiveWellColor}" Grid.Column="0" Grid.Row="0"/>
+            </Grid>
+        </Border>
+        <TextBox x:Name="textBox_Videoname" HorizontalAlignment="Right" Height="23" Margin="0,10,-76,0" TextWrapping="Wrap" VerticalAlignment="Top" Width="111" Text="{Binding Videoname}" TextChanged="textBox_Videoname_TextChanged"/>
+        <Label x:Name="label_Videoname" Content="Videoname" HorizontalAlignment="Right" Margin="0,7,-181,0" VerticalAlignment="Top" Width="91"/>
+        <Label x:Name="label_WellRows" Content="WellRows" HorizontalAlignment="Right" Margin="0,294,83,0" VerticalAlignment="Top" Width="63"/>
+        <Label x:Name="label_WellCols" Content="WellCols" HorizontalAlignment="Right" Margin="0,33,-221,0" VerticalAlignment="Top" Width="55"/>
+    </Grid>
+</Window>
