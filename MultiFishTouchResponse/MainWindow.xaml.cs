@@ -1038,7 +1038,7 @@ namespace MultiFishTouchResponse
                             }
                             else
                             {
-                                Ximea.Recording = true;
+                                // Ximea.Recording = true;
                                 Task.Delay(2000).Wait();
                             }
 
