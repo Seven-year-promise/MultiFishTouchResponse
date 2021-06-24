@@ -397,7 +397,7 @@ namespace MultiFishTouchResponse
                 var ys = ArrayOperate.GetColumn(circles_array, 0);
                 well_centery = (int)(Queryable.Average(ys.AsQueryable()));
                 var rs = ArrayOperate.GetColumn(circles_array, 2);
-                well_radius = (int)(Queryable.Average(rs.AsQueryable())); //np.uint16(np.round(np.average(circles[0, :, 2])))
+                well_radius = 110; // (int)(Queryable.Average(rs.AsQueryable())); //np.uint16(np.round(np.average(circles[0, :, 2])))
                                                                           //return False, (240, 240, 110)
 
                 //first rough mask for well detection
@@ -411,7 +411,7 @@ namespace MultiFishTouchResponse
                     Cv2.BitwiseAnd(im, mask, gray_masked);
                 }
 
-
+                /*
                 // second fine-tuned mask
                 var th = new Mat();
                 Cv2.Threshold(gray_masked, th, threshold, 255, ThresholdTypes.Binary);
@@ -430,6 +430,7 @@ namespace MultiFishTouchResponse
                 Cv2.BitwiseNot(closing, closing_inv);
                 //closing_inv = np.array((closing_inv, closing_inv, closing_inv)).transpose(1, 2, 0);
                 var im_closing_inv = closing_inv + im_closing;
+                */
 
                 /*
                 Cv2.Circle(im, well_centerx, well_centery, 104, new Scalar(0, 255, 0), 1);
@@ -438,10 +439,10 @@ namespace MultiFishTouchResponse
                     Cv2.WaitKey(0);
                 }
                 */
-                well_radius = 95;
+                well_radius = 95; // for safeties of trajectory
                 well_info = new int[3] { well_centery, well_centerx, well_radius };
 
-                return im_closing_inv;
+                return gray_masked;
             }
             else {
                 well_info = null;
