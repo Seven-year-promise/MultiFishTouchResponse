@@ -76,7 +76,7 @@ namespace MultiFishTouchResponse
             viewModel = viewmodel;
             DebugWindow = debugview;
             post_processor = new PostProcessing();
-            unet = new UNet_tf("UNet30000.pb");
+            unet = new UNet_tf("./models_update/UNet14000.pb");
             dataOperator = new DataComputation();
             dataTransfer = new DataTransformation();
             rg = new RegionGrowing(5);
@@ -271,6 +271,7 @@ namespace MultiFishTouchResponse
                 var gray = new Mat();
                 //Cv2.CvtColor(src: src, dst: gray, code: ColorConversionCodes.BGR2GRAY);
                 var masked_im = well_detection(src, out this.well_info_ori);
+                var masked_im_strong = well_detection_strong(src, out this.well_info_ori);
                 if (masked_im == null)
                 {
                     this.larva_binary = null;
@@ -280,7 +281,7 @@ namespace MultiFishTouchResponse
                     Cv2.Circle(this.analyzed_color, centerX: this.well_info_ori[1], centerY: this.well_info_ori[0], this.well_info_ori[2], new Scalar(255, 255, 0), 2);
                     Cv2.ImWrite(Ximea.Path + "\\" + viewModel.Videoname + "_well.jpg", masked_im);
                     //make sure where the needle is
-                    this.needle_point = post_processor.needle_usingMaxima(masked_im, this.needle_point, 14);
+                    this.needle_point = post_processor.needle_usingMaxima(masked_im_strong, this.needle_point, 14);
                     Rect well_area = new Rect((this.well_info_ori[1] - 120), (this.well_info_ori[0] - 120), 240, 240);
                     var im_block = masked_im[well_area];
                     // TODO  I do now know why, need to check it later
@@ -383,7 +384,8 @@ namespace MultiFishTouchResponse
             int well_radius = 0;
             var circle_num = circles.Count();
 
-            if (circle_num > 0) {
+            if (circle_num > 0)
+            {
                 float[,] circles_array = new float[circle_num, 3];
                 for (int i = 0; i < circle_num; i++)
                 {
@@ -398,7 +400,7 @@ namespace MultiFishTouchResponse
                 well_centery = (int)(Queryable.Average(ys.AsQueryable()));
                 var rs = ArrayOperate.GetColumn(circles_array, 2);
                 well_radius = 110; // (int)(Queryable.Average(rs.AsQueryable())); //np.uint16(np.round(np.average(circles[0, :, 2])))
-                                                                          //return False, (240, 240, 110)
+                                   //return False, (240, 240, 110)
 
                 //first rough mask for well detection
                 var gray_masked = new Mat();
@@ -443,6 +445,86 @@ namespace MultiFishTouchResponse
                 well_info = new int[3] { well_centery, well_centerx, well_radius };
 
                 return gray_masked;
+            }
+            else
+            {
+                well_info = null;
+                return null;
+            }
+
+        }
+
+        public Mat well_detection_strong(Mat im, out int[] well_info, int threshold = 50)
+        {
+            var rows = im.Height;
+            var circles = Cv2.HoughCircles(im, HoughMethods.Gradient, 1, rows / 5,
+                                            param1: 220, param2: 30,
+                                            minRadius: 95, maxRadius: 105);
+            int well_centerx = 0;
+            int well_centery = 0;
+            int well_radius = 0;
+            var circle_num = circles.Count();
+
+            if (circle_num > 0) {
+                float[,] circles_array = new float[circle_num, 3];
+                for (int i = 0; i < circle_num; i++)
+                {
+                    circles_array[i, 0] = circles[i].Center.Y;
+                    circles_array[i, 1] = circles[i].Center.X;
+                    circles_array[i, 2] = circles[i].Radius;
+                }
+                var ArrayOperate = new DataStructure<float>();
+                var xs = ArrayOperate.GetColumn(circles_array, 1);
+                well_centerx = (int)(Queryable.Average(xs.AsQueryable()));
+                var ys = ArrayOperate.GetColumn(circles_array, 0);
+                well_centery = (int)(Queryable.Average(ys.AsQueryable()));
+                var rs = ArrayOperate.GetColumn(circles_array, 2);
+                well_radius = 110; // (int)(Queryable.Average(rs.AsQueryable())); //np.uint16(np.round(np.average(circles[0, :, 2])))
+                                                                          //return False, (240, 240, 110)
+
+                //first rough mask for well detection
+                var gray_masked = new Mat();
+
+                using (var mask = new Mat(rows, rows, MatType.CV_8UC1, new Scalar(0)))
+                {
+                    Cv2.Circle(img: mask,
+                               centerX: well_centerx, centerY: well_centery,
+                               radius: well_radius, new Scalar(255), -1, LineTypes.Link8, 0);
+                    Cv2.BitwiseAnd(im, mask, gray_masked);
+                }
+
+                
+                // second fine-tuned mask
+                var th = new Mat();
+                Cv2.Threshold(gray_masked, th, threshold, 255, ThresholdTypes.Binary);
+                Mat element = Cv2.GetStructuringElement(MorphShapes.Rect, new Size(10, 10));
+                var closing = new Mat();
+                Cv2.MorphologyEx(th, closing, MorphTypes.Close, element);
+                var im_closing = new Mat();
+                Cv2.BitwiseAnd(im, closing, im_closing);
+
+                var white_indexes = dataOperator.WhereEqual(closing, 255);
+                well_centery = (int)(Math.Round(white_indexes[0].Average()));
+                well_centerx = (int)(Math.Round(white_indexes[1].Average()));
+
+                // third fine-tuned mask for background white
+                var closing_inv = new Mat();
+                Cv2.BitwiseNot(closing, closing_inv);
+                //closing_inv = np.array((closing_inv, closing_inv, closing_inv)).transpose(1, 2, 0);
+                var im_closing_inv = closing_inv + im_closing;
+                
+
+                /*
+                Cv2.Circle(im, well_centerx, well_centery, 104, new Scalar(0, 255, 0), 1);
+                using (new Window("well", im))
+                {
+                    Cv2.WaitKey(0);
+                }
+                */
+                well_radius = 95; // for safeties of trajectory
+                well_info = new int[3] { well_centery, well_centerx, well_radius };
+
+                return im_closing_inv;
             }
             else {
                 well_info = null;

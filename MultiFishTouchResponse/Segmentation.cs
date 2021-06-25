@@ -349,13 +349,20 @@ namespace MultiFishTouchResponse
 
         public int[] compare_binary(List<Mat> src)
         {
+            /*
             List<Mat> compared_binaries = new List<Mat>();
             Mat src_0 = src[0];
             Mat src_1 = src[1];
 
+            Mat element = Cv2.GetStructuringElement(MorphShapes.Rect, new Size(5, 5));
+            var closing0 = new Mat();
+            var closing1 = new Mat();
+            Cv2.MorphologyEx(src_0, closing0, MorphTypes.Close, element);
+            Cv2.MorphologyEx(src_1, closing1, MorphTypes.Close, element);
+
             Mat labels = new Mat();
-            int label_num_0 = Cv2.ConnectedComponents(src_0, labels);
-            int label_num_1 = Cv2.ConnectedComponents(src_1, labels);
+            int label_num_0 = Cv2.ConnectedComponents(closing0, labels);
+            int label_num_1 = Cv2.ConnectedComponents(closing1, labels);
             if(label_num_0 > label_num_1)
             {
                 return new int[2] { 1, 0 };
@@ -364,11 +371,13 @@ namespace MultiFishTouchResponse
             {
                 return new int[2] { 0, 1 };
             }
+            */
+            return new int[2] { 0, 1 };
         }
 
         public int[] find_needle_point(Mat mask, Mat gray)
         {
-            Mat element = Cv2.GetStructuringElement(MorphShapes.Rect, new Size(5, 5));
+            Mat element = Cv2.GetStructuringElement(MorphShapes.Rect, new Size(3, 3));
             var mask_erode = new Mat();
             Cv2.Erode(mask, mask_erode, element);
 
