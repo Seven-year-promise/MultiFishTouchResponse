@@ -72,7 +72,7 @@ namespace MultiFishTouchResponse
             9.0
         };
         List<int[]> firstPositions = new List<int[]>() {
-            new int[] { 89, 4994 }, // { 53, 5045 },
+            new int[] { 89, 5050 }, // { 53, 5045 },
             new int[] { 65, 4715 },//{ 29, 4766 },
             new int[] { 1890, 4249 },
             new int[] { 1890, 4249 },
@@ -169,7 +169,7 @@ namespace MultiFishTouchResponse
             viewModel.fishSelectedPart = wellInformation.fishPartIndex;
             viewModel.debug = true;
 
-            Wellpositions = TxtFileReader("WellPositions.txt");
+            //Wellpositions = TxtFileReader("WellPositions.txt");
 
             linefactor = 0.20375;//0.294 / 200 * viewModel.StepMode;
 
@@ -238,6 +238,7 @@ namespace MultiFishTouchResponse
             checkbowellrow.Add(checkBox_WellRowG);
             checkbowellrow.Add(checkBox_WellRowH);
         }
+        /*
         public List<int[]> TxtFileReader(string filename)
         {
             string[] textlines = System.IO.File.ReadAllLines("WellPositions.txt");
@@ -251,6 +252,7 @@ namespace MultiFishTouchResponse
             }
             return WellPositions;
         }
+        */
 
         private void PrepareSets()
         {
