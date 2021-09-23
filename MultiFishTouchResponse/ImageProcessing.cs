@@ -71,12 +71,28 @@ namespace MultiFishTouchResponse
 
         double[] percentages;
 
+        List<String> model_file_list = new List<String>() {
+                "./models_update/UNet30000-well6.pb",
+                "./models_update/UNet14000.pb"                
+            };
+
+        List<int> well_radius_list = new List<int>() {
+                165,
+                100
+            };
+
+        List<int> unet_input_size_list = new List<int>() {
+                400,
+                240
+            };
+
         public ImageProcessing(ViewModel viewmodel, DebugView debugview)
         {
             viewModel = viewmodel;
             DebugWindow = debugview;
             post_processor = new PostProcessing();
-            unet = new UNet_tf("./models_update/UNet14000.pb");
+            
+            unet = new UNet_tf(model_file_list[wellInformation.wellTpyeIndex]);
             dataOperator = new DataComputation();
             dataTransfer = new DataTransformation();
             rg = new RegionGrowing(5);
@@ -178,7 +194,10 @@ namespace MultiFishTouchResponse
                 Cv2.Circle(this.analyzed_color, centerX: this.well_info_ori[1], 
                     centerY: this.well_info_ori[0], this.well_info_ori[2], new Scalar(255, 255, 0), 2);
                 Cv2.ImWrite(Ximea.Path + "\\" + viewModel.Videoname + "_well.jpg", masked_im);
-                Rect well_area = new Rect((this.well_info_ori[1] - 120), (this.well_info_ori[0] - 120), 240, 240);
+                Rect well_area = new Rect((this.well_info_ori[1] - unet_input_size_list[wellInformation.wellTpyeIndex]/2), 
+                    (this.well_info_ori[0] - unet_input_size_list[wellInformation.wellTpyeIndex] / 2), 
+                    unet_input_size_list[wellInformation.wellTpyeIndex],
+                    unet_input_size_list[wellInformation.wellTpyeIndex]);
                 var im_block = masked_im[well_area];
                 // TODO  I do now know why, need to check it later
                 //Ximea.StopCamera = true;
@@ -282,7 +301,10 @@ namespace MultiFishTouchResponse
                     Cv2.ImWrite(Ximea.Path + "\\" + viewModel.Videoname + "_well.jpg", masked_im);
                     //make sure where the needle is
                     this.needle_point = post_processor.needle_usingMaxima(masked_im_strong, this.needle_point, 14);
-                    Rect well_area = new Rect((this.well_info_ori[1] - 120), (this.well_info_ori[0] - 120), 240, 240);
+                    Rect well_area = new Rect((this.well_info_ori[1] - unet_input_size_list[wellInformation.wellTpyeIndex] / 2),
+                        (this.well_info_ori[0] - unet_input_size_list[wellInformation.wellTpyeIndex] / 2),
+                        unet_input_size_list[wellInformation.wellTpyeIndex], 
+                        unet_input_size_list[wellInformation.wellTpyeIndex]);
                     var im_block = masked_im[well_area];
                     // TODO  I do now know why, need to check it later
                     //Ximea.StopCamera = true;
@@ -378,7 +400,8 @@ namespace MultiFishTouchResponse
             var rows = im.Height;
             var circles = Cv2.HoughCircles(im, HoughMethods.Gradient, 1, rows / 5,
                                             param1: 220, param2: 30,
-                                            minRadius: 95, maxRadius: 105);
+                                            minRadius: well_radius_list[wellInformation.wellTpyeIndex] - 5, 
+                                            maxRadius: well_radius_list[wellInformation.wellTpyeIndex] + 5);
             int well_centerx = 0;
             int well_centery = 0;
             int well_radius = 0;
@@ -399,7 +422,7 @@ namespace MultiFishTouchResponse
                 var ys = ArrayOperate.GetColumn(circles_array, 0);
                 well_centery = (int)(Queryable.Average(ys.AsQueryable()));
                 var rs = ArrayOperate.GetColumn(circles_array, 2);
-                well_radius = 110; // (int)(Queryable.Average(rs.AsQueryable())); //np.uint16(np.round(np.average(circles[0, :, 2])))
+                well_radius = well_radius_list[wellInformation.wellTpyeIndex] + 10; // (int)(Queryable.Average(rs.AsQueryable())); //np.uint16(np.round(np.average(circles[0, :, 2])))
                                    //return False, (240, 240, 110)
 
                 //first rough mask for well detection
@@ -441,7 +464,7 @@ namespace MultiFishTouchResponse
                     Cv2.WaitKey(0);
                 }
                 */
-                well_radius = 95; // for safeties of trajectory
+                well_radius = well_radius_list[wellInformation.wellTpyeIndex] - 5; // for safeties of trajectory
                 well_info = new int[3] { well_centery, well_centerx, well_radius };
 
                 return gray_masked;
@@ -459,7 +482,8 @@ namespace MultiFishTouchResponse
             var rows = im.Height;
             var circles = Cv2.HoughCircles(im, HoughMethods.Gradient, 1, rows / 5,
                                             param1: 220, param2: 30,
-                                            minRadius: 95, maxRadius: 105);
+                                            minRadius: well_radius_list[wellInformation.wellTpyeIndex] - 5, 
+                                            maxRadius: well_radius_list[wellInformation.wellTpyeIndex] + 5);
             int well_centerx = 0;
             int well_centery = 0;
             int well_radius = 0;
@@ -479,7 +503,7 @@ namespace MultiFishTouchResponse
                 var ys = ArrayOperate.GetColumn(circles_array, 0);
                 well_centery = (int)(Queryable.Average(ys.AsQueryable()));
                 var rs = ArrayOperate.GetColumn(circles_array, 2);
-                well_radius = 110; // (int)(Queryable.Average(rs.AsQueryable())); //np.uint16(np.round(np.average(circles[0, :, 2])))
+                well_radius = well_radius_list[wellInformation.wellTpyeIndex] - 10; // (int)(Queryable.Average(rs.AsQueryable())); //np.uint16(np.round(np.average(circles[0, :, 2])))
                                                                           //return False, (240, 240, 110)
 
                 //first rough mask for well detection
@@ -521,7 +545,7 @@ namespace MultiFishTouchResponse
                     Cv2.WaitKey(0);
                 }
                 */
-                well_radius = 95; // for safeties of trajectory
+                well_radius = well_radius_list[wellInformation.wellTpyeIndex] - 5; // for safeties of trajectory
                 well_info = new int[3] { well_centery, well_centerx, well_radius };
 
                 return im_closing_inv;
