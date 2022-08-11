@@ -72,8 +72,8 @@ namespace MultiFishTouchResponse
             9.0
         };
         List<int[]> firstPositions = new List<int[]>() {
-            new int[] { 89, 5050 }, // { 53, 5045 },
-            new int[] { 65, 4715 },//{ 29, 4766 },
+            new int[] { 89, 4994 }, // { 53, 5045 },
+            new int[] { 65, 4845 },//{ 29, 4766 },
             new int[] { 1890, 4249 },
             new int[] { 1890, 4249 },
             new int[] { 1890, 4249 }
@@ -1008,8 +1008,8 @@ namespace MultiFishTouchResponse
                             {
                                 while (imageProcessor.touched_larva_cnt < imageProcessor.detected_larva_num)
                                 {
-                                    imageProcessor.DetectionINIT = false;
-                                    imageProcessor.got_next_fished = false;
+                                    //imageProcessor.DetectionINIT = false;
+                                    //imageProcessor.got_next_fished = false;
                                     
                                     await Task.Run(() =>
                                     {

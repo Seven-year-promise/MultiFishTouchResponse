@@ -77,7 +77,7 @@ namespace MultiFishTouchResponse
             };
 
         List<int> well_radius_list = new List<int>() {
-                165,
+                175,
                 100
             };
 
@@ -220,11 +220,27 @@ namespace MultiFishTouchResponse
                 this.needle_binary[well_area] = binaries[binary_inds[0]];
                 this.larva_binary[well_area] = binaries[binary_inds[1]];
 
+                Mat element = Cv2.GetStructuringElement(MorphShapes.Rect, new Size(5, 5));
+                var closing0 = new Mat();
+                Cv2.MorphologyEx(this.needle_binary, closing0, MorphTypes.Close, element);
+
+                Mat labels = new Mat();
+                int needle_num = Cv2.ConnectedComponents(closing0, labels);
+                /*
+                if(needle_num != 1)
+                {
+                    Rect needle_area = new Rect(200, 200, 80, 80);
+                    this.needle_binary[needle_area] = new Mat(80, 80, MatType.CV_8UC1, new Scalar(1)); 
+                }
+                */
+                Rect needle_area = new Rect(this.well_info_ori[1] - 50, this.well_info_ori[0] - 50, 100, 100);
+                this.needle_binary[needle_area] = new Mat(100, 100, MatType.CV_8UC1, new Scalar(255));
+
+                this.needle_point = post_processor.find_needle_point(this.needle_binary, src);
                 Cv2.ImWrite(Ximea.Path + "\\" + viewModel.Videoname + "_binary_needle.jpg", this.needle_binary);
                 Cv2.ImWrite(Ximea.Path + "\\" + viewModel.Videoname + "_binary_larva.jpg", this.larva_binary);
 
-
-                this.needle_point = post_processor.find_needle_point(this.needle_binary, src);
+               
                 //needle_point = needle_detector.run(im_block);
                 //needle_point[0] = 100;
                 //needle_point[1] = 300;
