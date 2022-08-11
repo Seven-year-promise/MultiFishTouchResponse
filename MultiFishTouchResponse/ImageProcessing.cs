@@ -226,15 +226,13 @@ namespace MultiFishTouchResponse
 
                 Mat labels = new Mat();
                 int needle_num = Cv2.ConnectedComponents(closing0, labels);
-                /*
+                
                 if(needle_num != 1)
                 {
-                    Rect needle_area = new Rect(200, 200, 80, 80);
-                    this.needle_binary[needle_area] = new Mat(80, 80, MatType.CV_8UC1, new Scalar(1)); 
+                    Rect needle_area = new Rect(this.well_info_ori[1] - 50, this.well_info_ori[0] - 50, 100, 100);
+                    this.needle_binary[needle_area] = new Mat(100, 100, MatType.CV_8UC1, new Scalar(255));
                 }
-                */
-                Rect needle_area = new Rect(this.well_info_ori[1] - 50, this.well_info_ori[0] - 50, 100, 100);
-                this.needle_binary[needle_area] = new Mat(100, 100, MatType.CV_8UC1, new Scalar(255));
+
 
                 this.needle_point = post_processor.find_needle_point(this.needle_binary, src);
                 Cv2.ImWrite(Ximea.Path + "\\" + viewModel.Videoname + "_binary_needle.jpg", this.needle_binary);
