@@ -1,8 +1,11 @@
-# MultiFishTouchResponse
+# Code for High-Throughput Data Acquisition Platform for Multi-Larvae Touch-Response Behavior Screening of Zebrafish
 
-System to do multi-fish touch response experiments
+paper link: https://ieeexplore.ieee.org/stamp/stamp.jsp?arnumber=9647931
 
-what I have tried:
+# This code is implemented by C#, and uses the following libraries:
+
+
+# Additionally comments that are used for debugging:
 
 Some useful notes on Touch response development
 
