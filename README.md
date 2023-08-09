@@ -5,9 +5,9 @@
 
 ### This code is implemented by C#, and uses the following libraries:
 
-- OpenCvSharp (the opencv library for C#)
+- OpenCvSharp (the opencv library for C#: https://github.com/shimat/opencvsharp)
 - Tensorflow (the tensorflow library for C#: https://github.com/SciSharp/TensorFlow.NET)
-- NumSharp (numpy library for C#)
+- NumSharp (numpy library for C#: https://github.com/SciSharp/NumSharp)
 
 ### Additionally comments that are used for debugging:
 
