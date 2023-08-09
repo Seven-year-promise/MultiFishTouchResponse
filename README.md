@@ -1,14 +1,14 @@
-## High-Throughput Data Acquisition Platform for Multi-Larvae Touch-Response Behavior Screening of Zebrafish
+### High-Throughput Data Acquisition Platform for Multi-Larvae Touch-Response Behavior Screening of Zebrafish
 
-### paper link: https://ieeexplore.ieee.org/stamp/stamp.jsp?arnumber=9647931
+#### paper link: https://ieeexplore.ieee.org/stamp/stamp.jsp?arnumber=9647931
 
-## This code is implemented by C#, and uses the following libraries:
+### This code is implemented by C#, and uses the following libraries:
 
 - OpenCvSharp (the opencv library for C#)
 - Tensorflow (the tensorflow library for C#: https://github.com/SciSharp/TensorFlow.NET)
 - NumSharp (numpy library for C#)
 
-## Additionally comments that are used for debugging:
+### Additionally comments that are used for debugging:
 
 Some useful notes on Touch response development
 
